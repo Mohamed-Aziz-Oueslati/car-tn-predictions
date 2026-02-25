@@ -38,7 +38,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="C:\Users\Yasmine ben attia\Desktop\mon-projet-ml\venv"
+VIRTUAL_ENV="C:\Users\Yasmine ben attia\Downloads\mon-projet-ml-main\mon-projet-ml-main-new\venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

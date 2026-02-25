@@ -27,10 +27,10 @@ Le projet suit les étapes essentielles d’un **pipeline Data Science complet**
 
 ## Description du dataset
 
-- **Source :** automobile.tn
+- **Source :** : Web scraping "automobile.tn"
 - **Format :** CSV
-- **Nombre d’observations :** 108 voitures
-- **Nombre de variables :** 24 colonnes
+- **Nombre d’observations** : 2141 lignes
+- **Nombre de variables** : 24 colonnes
 
 ### Principales variables :
 
@@ -86,42 +86,37 @@ Les performances des modèles sont évaluées à l’aide des métriques suivant
 - Jupyter Notebook
 - visual studio code
 
----
-
-## Structure du projet
-
-prediction-prix-voitures-tn/
-├── data/ # Données brutes et traitées
-├── notebooks/ # Notebooks Jupyter
-│ ├── 01_eda.ipynb # Analyse exploratoire
-│ ├── 02_preprocessing.ipynb # Prétraitement
-│ └── 03_modelisation.ipynb # Modélisation
-├── src/ # Code source Python
-│ ├── preprocessing.py # Script de prétraitement
-│ └── entrainement_modele.py # Script d'entraînement
-├── README.md # Documentation
-└── requirements.txt # Dépendances Python
-
----
-
 ## Équipe
 
 - **Nom de l’équipe :** Data Vision
 - **Membres :**
   - Amira May
-  - Yassemine ben attaia
+  - Yasmine ben attaia
   - Aziz oueslati
 
 ---
 
 ## Objectifs pédagogiques
 
-- Appliquer les étapes d’un projet Machine Learning réel
-- Manipuler un dataset issu du monde réel
-- Comparer plusieurs modèles de régression
-- Interpréter les résultats obtenus
+- Comprendre la structure du jeu de données
+- Réaliser une **Analyse Exploratoire des Données (EDA)**
+- Nettoyer et préparer les données
+- Construire et entraîner des modèles de régression
+- Évaluer et comparer les performances des modèles
+- Prédire les prix avec le meilleur modèle
 
 ---
+
+## Exécution du projet
+
+1. Cloner le dépôt
+
+```bash
+git clone https://github.com/Mayamira10/mon-projet-ml.git
+
+
+Installer les dépendances
+pip install -r requirements.txt
 
 ## Contact
 
@@ -129,3 +124,4 @@ Pour toute question ou remarque :
 mayamiratir@gmail.com
 
 ---
+```
