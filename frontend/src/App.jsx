@@ -1,53 +1,53 @@
 import { useState, useEffect } from "react";
 
-// APRÈS
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-// ─── DATA ───────────────────────────────────────────────────────────────────
+const gold = "#c9a227";
+const goldDim = "rgba(201,162,39,0.15)";
+
+// ─── DATA ────────────────────────────────────────────────────────────────────
 const MARQUES = [
-  [
-    "Toyota",
-    "Volkswagen",
-    "Renault",
-    "Peugeot",
-    "Hyundai",
-    "Kia",
-    "Ford",
-    "BMW",
-    "Mercedes",
-    "Audi",
-    "Citroën",
-    "Nissan",
-    "Honda",
-    "Fiat",
-    "Dacia",
-    "Seat",
-    "Opel",
-    "Chevrolet",
-    "Suzuki",
-    "Mazda",
-    "Abarth",
-    "Alfa Romeo",
-    "BAIC YX",
-    "BYD",
-    "Cadillac",
-    "Changan",
-    "Chery",
-    "Cupra",
-    "DS",
-    "Dongfeng",
-    "GWM",
-    "Geely",
-    "Hummer",
-    "Infiniti",
-    "Isuzu",
-    "Jaguar",
-    "Jeep",
-    "Jetour",
-    "Lancia",
-    "Land Rover",
-    "Lexus",
-  ],
+  "Toyota",
+  "Volkswagen",
+  "Renault",
+  "Peugeot",
+  "Hyundai",
+  "Kia",
+  "Ford",
+  "BMW",
+  "Mercedes",
+  "Audi",
+  "Citroën",
+  "Nissan",
+  "Honda",
+  "Fiat",
+  "Dacia",
+  "Seat",
+  "Opel",
+  "Chevrolet",
+  "Suzuki",
+  "Mazda",
+  "Abarth",
+  "Alfa Romeo",
+  "BAIC YX",
+  "BYD",
+  "Cadillac",
+  "Changan",
+  "Chery",
+  "Cupra",
+  "DS",
+  "Dongfeng",
+  "GWM",
+  "Geely",
+  "Hummer",
+  "Infiniti",
+  "Isuzu",
+  "Jaguar",
+  "Jeep",
+  "Jetour",
+  "Lancia",
+  "Land Rover",
+  "Lexus",
 ];
 const ENERGIES = ["Essence", "Diesel", "Hybride", "Électrique", "GPL"];
 const BOITES = ["Manuelle", "Automatique", "Semi-automatique"];
@@ -207,10 +207,7 @@ const numericFields = [
   "age_voiture",
 ];
 
-const gold = "#c9a227";
-const goldDim = "rgba(201,162,39,0.15)";
-
-// ─── ANIMATED BG ─────────────────────────────────────────────────────────────
+// ─── BACKGROUND COMMUN ───────────────────────────────────────────────────────
 function AnimatedBg({ particles }) {
   return (
     <div style={s.bg}>
@@ -236,8 +233,371 @@ function AnimatedBg({ particles }) {
   );
 }
 
+// ─── PAGE AUTH (Login / Sign Up) ─────────────────────────────────────────────
+function AuthPage({ onSuccess }) {
+  const [mode, setMode] = useState("login");
+  const [form, setForm] = useState({
+    nom: "",
+    prenom: "",
+    email: "",
+    password: "",
+    confirm: "",
+    telephone: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [showPass, setShowPass] = useState(false);
+  const [showConf, setShowConf] = useState(false);
+  const [success, setSuccess] = useState(null);
+
+  const change = (k, v) => {
+    setForm((p) => ({ ...p, [k]: v }));
+    setError(null);
+  };
+
+  const switchMode = (m) => {
+    setMode(m);
+    setError(null);
+    setSuccess(null);
+    setForm({
+      nom: "",
+      prenom: "",
+      email: "",
+      password: "",
+      confirm: "",
+      telephone: "",
+    });
+  };
+
+  const submit = async () => {
+    if (!form.email || !form.password) {
+      setError("Email et mot de passe obligatoires.");
+      return;
+    }
+    if (mode === "register") {
+      if (!form.nom || !form.prenom) {
+        setError("Nom et prénom obligatoires.");
+        return;
+      }
+      if (form.password !== form.confirm) {
+        setError("Les mots de passe ne correspondent pas.");
+        return;
+      }
+      if (form.password.length < 6) {
+        setError("Mot de passe : 6 caractères minimum.");
+        return;
+      }
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const endpoint = mode === "login" ? "/auth/login" : "/auth/register";
+      const body =
+        mode === "login"
+          ? { email: form.email, password: form.password }
+          : {
+              nom: form.nom,
+              prenom: form.prenom,
+              email: form.email,
+              password: form.password,
+              telephone: form.telephone || null,
+            };
+      const res = await fetch(`${API_URL}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Erreur serveur");
+      if (mode === "register") {
+        switchMode("login");
+        setTimeout(
+          () =>
+            setSuccess(
+              "✅ Compte créé avec succès ! Connectez-vous maintenant.",
+            ),
+          50,
+        );
+      } else {
+        localStorage.setItem("ap_token", data.access_token);
+        localStorage.setItem("ap_user", JSON.stringify(data.user));
+        onSuccess(data.user);
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={s.authPage}>
+      <div style={s.bgGrad1} />
+      <div style={s.bgGrad2} />
+      <div style={s.bgGrad3} />
+      <div style={s.grid} />
+      <div style={s.carSilhouette}>
+        <svg viewBox="0 0 900 260" style={{ width: "100%", height: "100%" }}>
+          <path
+            d="M140,190 L110,190 Q72,190 62,162 L44,112 Q38,92 58,87 L175,78 Q218,52 325,47 L488,47 Q572,47 624,78 L732,87 Q758,92 762,112 L752,162 Q742,190 704,190 L672,190 Q667,222 640,222 Q613,222 608,190 L222,190 Q217,222 190,222 Q163,222 158,190 Z"
+            fill={gold}
+            opacity="0.04"
+          />
+          <ellipse
+            cx="190"
+            cy="196"
+            rx="32"
+            ry="32"
+            fill={gold}
+            opacity="0.04"
+          />
+          <ellipse
+            cx="630"
+            cy="196"
+            rx="32"
+            ry="32"
+            fill={gold}
+            opacity="0.04"
+          />
+        </svg>
+      </div>
+
+      <div style={s.authCard} onKeyDown={(e) => e.key === "Enter" && submit()}>
+        <div style={s.authLogo}>
+          <span style={{ fontSize: "22px", color: gold }}>◈</span>
+          <span
+            style={{
+              fontFamily: "'Bebas Neue',sans-serif",
+              fontSize: "22px",
+              letterSpacing: "3px",
+              color: "#e8dcc8",
+            }}
+          >
+            AutoPredict <span style={{ color: gold }}>TN</span>
+          </span>
+        </div>
+
+        <div style={s.authBadge}>
+          {mode === "login" ? "🔑 Espace membre" : "🚀 Créer un compte"}
+        </div>
+
+        <div style={s.authTabs}>
+          <button
+            onClick={() => switchMode("login")}
+            style={{
+              ...s.authTab,
+              ...(mode === "login" ? s.authTabActive : {}),
+            }}
+          >
+            Connexion
+          </button>
+          <button
+            onClick={() => switchMode("register")}
+            style={{
+              ...s.authTab,
+              ...(mode === "register" ? s.authTabActive : {}),
+            }}
+          >
+            Inscription
+          </button>
+        </div>
+
+        <p style={s.authSub}>
+          {mode === "login"
+            ? "Bienvenue ! Connectez-vous pour continuer."
+            : "Créez votre compte gratuit en quelques secondes."}
+        </p>
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "13px",
+            marginBottom: "14px",
+          }}
+        >
+          {mode === "register" && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "12px",
+              }}
+            >
+              <div style={s.fg}>
+                <label style={s.lbl}>Nom</label>
+                <input
+                  type="text"
+                  placeholder="Ben Ali"
+                  value={form.nom}
+                  onChange={(e) => change("nom", e.target.value)}
+                  style={s.inp}
+                />
+              </div>
+              <div style={s.fg}>
+                <label style={s.lbl}>Prénom</label>
+                <input
+                  type="text"
+                  placeholder="Ahmed"
+                  value={form.prenom}
+                  onChange={(e) => change("prenom", e.target.value)}
+                  style={s.inp}
+                />
+              </div>
+            </div>
+          )}
+          <div style={s.fg}>
+            <label style={s.lbl}>Adresse e-mail</label>
+            <div style={{ position: "relative" }}>
+              <span style={s.icoL}>✉</span>
+              <input
+                type="email"
+                placeholder="email@exemple.com"
+                value={form.email}
+                onChange={(e) => change("email", e.target.value)}
+                style={{ ...s.inp, paddingLeft: "34px" }}
+              />
+            </div>
+          </div>
+          {mode === "register" && (
+            <div style={s.fg}>
+              <label style={s.lbl}>
+                Téléphone{" "}
+                <span style={{ fontSize: "9px", opacity: 0.5 }}>
+                  (optionnel)
+                </span>
+              </label>
+              <div style={{ position: "relative" }}>
+                <span style={s.icoL}>📱</span>
+                <input
+                  type="tel"
+                  placeholder="+216 XX XXX XXX"
+                  value={form.telephone}
+                  onChange={(e) => change("telephone", e.target.value)}
+                  style={{ ...s.inp, paddingLeft: "34px" }}
+                />
+              </div>
+            </div>
+          )}
+          <div style={s.fg}>
+            <label style={s.lbl}>Mot de passe</label>
+            <div style={{ position: "relative" }}>
+              <span style={s.icoL}>🔒</span>
+              <input
+                type={showPass ? "text" : "password"}
+                placeholder="••••••••"
+                value={form.password}
+                onChange={(e) => change("password", e.target.value)}
+                style={{ ...s.inp, paddingLeft: "34px", paddingRight: "38px" }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPass((p) => !p)}
+                style={s.eyeBtn}
+              >
+                {showPass ? "🙈" : "👁"}
+              </button>
+            </div>
+          </div>
+          {mode === "register" && (
+            <div style={s.fg}>
+              <label style={s.lbl}>Confirmer le mot de passe</label>
+              <div style={{ position: "relative" }}>
+                <span style={s.icoL}>🔒</span>
+                <input
+                  type={showConf ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={form.confirm}
+                  onChange={(e) => change("confirm", e.target.value)}
+                  style={{
+                    ...s.inp,
+                    paddingLeft: "34px",
+                    paddingRight: "38px",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConf((p) => !p)}
+                  style={s.eyeBtn}
+                >
+                  {showConf ? "🙈" : "👁"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {success && (
+          <div
+            style={{
+              padding: "11px 14px",
+              background: "rgba(0,255,136,0.07)",
+              border: "1px solid rgba(0,255,136,0.25)",
+              borderRadius: "10px",
+              fontSize: "13px",
+              color: "#00ff88",
+              marginBottom: "14px",
+            }}
+          >
+            {success}
+          </div>
+        )}
+        {error && <div style={s.errBox}>⚠ {error}</div>}
+
+        <button
+          onClick={submit}
+          disabled={loading}
+          style={{ ...s.authBtn, opacity: loading ? 0.75 : 1 }}
+        >
+          {loading
+            ? "⟳ Chargement..."
+            : mode === "login"
+              ? "🔑 Se connecter"
+              : "🚀 Créer mon compte"}
+        </button>
+
+        <p
+          style={{
+            textAlign: "center",
+            fontSize: "13px",
+            color: "rgba(232,220,200,0.35)",
+            marginBottom: "20px",
+          }}
+        >
+          {mode === "login" ? "Pas encore de compte ? " : "Déjà inscrit ? "}
+          <span
+            style={{
+              color: gold,
+              cursor: "pointer",
+              fontWeight: "600",
+              textDecoration: "underline",
+            }}
+            onClick={() => switchMode(mode === "login" ? "register" : "login")}
+          >
+            {mode === "login" ? "S'inscrire gratuitement" : "Se connecter"}
+          </span>
+        </p>
+
+        <div
+          style={{
+            textAlign: "center",
+            fontSize: "10px",
+            color: "rgba(232,220,200,0.2)",
+            letterSpacing: "1px",
+            textTransform: "uppercase",
+            borderTop: `1px solid ${goldDim}`,
+            paddingTop: "16px",
+          }}
+        >
+          🇹🇳 Marché automobile tunisien · Gratuit · Sécurisé
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── HEADER ──────────────────────────────────────────────────────────────────
-function Header({ page, onNav, apiStatus }) {
+function Header({ page, onNav, apiStatus, user, onLogout }) {
   return (
     <header style={s.header}>
       <div style={s.headerInner}>
@@ -284,12 +644,25 @@ function Header({ page, onNav, apiStatus }) {
                 : "Connexion..."}
           </span>
         </div>
+        {user && (
+          <div style={s.userArea}>
+            <span style={s.userAvatar}>
+              {(user.prenom || user.full_name || "U")[0].toUpperCase()}
+            </span>
+            <span style={s.userName}>
+              {user.prenom ? `${user.prenom} ${user.nom}` : user.full_name}
+            </span>
+            <button onClick={onLogout} style={s.logoutBtn}>
+              Déconnexion
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
 }
 
-// ─── HOME PAGE ────────────────────────────────────────────────────────────────
+// ─── HOME PAGE (avec nouvelle section "Nos véhicules en vedette") ───────────
 function HomePage({ onStart }) {
   const stats = [
     { value: "50K+", label: "Véhicules analysés" },
@@ -297,78 +670,56 @@ function HomePage({ onStart }) {
     { value: "24", label: "Gouvernorats couverts" },
     { value: "2s", label: "Temps de réponse" },
   ];
-  const features = [
+
+  const vehicules = [
     {
-      icon: "🤖",
-      title: "IA Avancée",
-      desc: "Modèle ML entraîné sur des milliers d'annonces du marché tunisien.",
+      marque: "Toyota",
+      modele: "Corolla",
+      prix: "22 500",
+      annee: "2022",
+      kilometrage: "30 000",
+      energie: "Hybride",
+      image:
+        "https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
     },
     {
-      icon: "⚡",
-      title: "Instantané",
-      desc: "Obtenez une estimation précise en moins de 2 secondes.",
+      marque: "Volkswagen",
+      modele: "Golf",
+      prix: "18 900",
+      annee: "2021",
+      kilometrage: "45 000",
+      energie: "Essence",
+      image:
+        "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
     },
     {
-      icon: "📊",
-      title: "Multi-critères",
-      desc: "17 paramètres analysés pour une précision maximale.",
+      marque: "Peugeot",
+      modele: "3008",
+      prix: "26 300",
+      annee: "2023",
+      kilometrage: "12 000",
+      energie: "Diesel",
+      image:
+        "https://images.unsplash.com/photo-1555215695-3004980ad54e?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
     },
     {
-      icon: "🇹🇳",
-      title: "Marché Local",
-      desc: "Calibré spécifiquement pour le marché automobile tunisien.",
+      marque: "Renault",
+      modele: "Clio",
+      prix: "14 200",
+      annee: "2020",
+      kilometrage: "58 000",
+      energie: "Essence",
+      image:
+        "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
     },
   ];
 
   return (
     <div>
-      {/* HERO */}
+      {/* Section Hero */}
       <section style={s.heroSection}>
-        {/* SVG car silhouette */}
-        <div style={s.carSilhouette}>
-          <svg viewBox="0 0 900 260" style={{ width: "100%", height: "100%" }}>
-            <path
-              d="M140,190 L110,190 Q72,190 62,162 L44,112 Q38,92 58,87 L175,78 Q218,52 325,47 L488,47 Q572,47 624,78 L732,87 Q758,92 762,112 L752,162 Q742,190 704,190 L672,190 Q667,222 640,222 Q613,222 608,190 L222,190 Q217,222 190,222 Q163,222 158,190 Z"
-              fill={gold}
-              opacity="0.06"
-            />
-            <ellipse
-              cx="190"
-              cy="196"
-              rx="32"
-              ry="32"
-              fill={gold}
-              opacity="0.06"
-            />
-            <ellipse
-              cx="630"
-              cy="196"
-              rx="32"
-              ry="32"
-              fill={gold}
-              opacity="0.06"
-            />
-            <rect
-              x="200"
-              y="90"
-              width="240"
-              height="85"
-              rx="6"
-              fill={gold}
-              opacity="0.02"
-            />
-            <rect
-              x="460"
-              y="90"
-              width="180"
-              height="85"
-              rx="6"
-              fill={gold}
-              opacity="0.02"
-            />
-          </svg>
-        </div>
-
+        <div style={s.heroBackground}></div>
+        <div style={s.heroOverlay}></div>
         <div style={s.heroContent}>
           <div style={s.badge}>
             🏆 Meilleur outil d'estimation automobile en Tunisie
@@ -388,8 +739,7 @@ function HomePage({ onStart }) {
           </p>
           <div style={s.heroBtns}>
             <button onClick={onStart} style={s.ctaPrimary}>
-              <span>🚗</span>
-              Entrer les données de votre voiture
+              <span>🚗</span>Entrer les données de votre voiture
               <span style={s.ctaArrow}>→</span>
             </button>
             <span style={s.ctaNote}>
@@ -399,7 +749,7 @@ function HomePage({ onStart }) {
         </div>
       </section>
 
-      {/* STATS */}
+      {/* Section Statistiques */}
       <section style={s.statsSection}>
         <div style={s.statsGrid}>
           {stats.map((st, i) => (
@@ -411,31 +761,43 @@ function HomePage({ onStart }) {
         </div>
       </section>
 
-      {/* FEATURES */}
-      <section style={s.featSection}>
+      {/* Nouvelle section : Véhicules en vedette */}
+      <section style={s.showcaseSection}>
         <div style={s.secHead}>
-          <span style={s.secTag}>Pourquoi nous choisir ?</span>
+          <span style={s.secTag}>Nos véhicules en vedette</span>
           <h2 style={s.secTitle}>
-            Une technologie au service
-            <br />
-            de votre patrimoine
+            Découvrez une sélection <br /> de voitures d'occasion
           </h2>
         </div>
-        <div style={s.featGrid}>
-          {features.map((f, i) => (
+        <div style={s.showcaseGrid}>
+          {vehicules.map((v, i) => (
             <div
               key={i}
-              style={{ ...s.featCard, animationDelay: `${i * 0.1}s` }}
+              style={{ ...s.showcaseCard, animationDelay: `${i * 0.1}s` }}
+              className="showcaseCard"
             >
-              <div style={s.featIcon}>{f.icon}</div>
-              <h3 style={s.featTitle}>{f.title}</h3>
-              <p style={s.featDesc}>{f.desc}</p>
+              <div
+                style={{ ...s.showcaseImg, backgroundImage: `url(${v.image})` }}
+                className="showcaseImg"
+              />
+              <div style={s.showcaseOverlay} />
+              <div style={s.showcaseContent}>
+                <h3 style={s.showcaseTitle}>
+                  {v.marque} {v.modele}
+                </h3>
+                <div style={s.showcasePrice}>{v.prix} TND</div>
+                <div style={s.showcaseSpecs}>
+                  <span>{v.annee}</span> • <span>{v.kilometrage} km</span> •{" "}
+                  <span>{v.energie}</span>
+                </div>
+                <button style={s.showcaseBtn} onClick={onStart}>
+                  Estimer ce modèle
+                </button>
+              </div>
             </div>
           ))}
         </div>
       </section>
-
-      {/* BOTTOM CTA */}
     </div>
   );
 }
@@ -542,7 +904,6 @@ function PredictPage() {
     );
   };
 
-  // RESULT SCREEN
   if (result)
     return (
       <div style={s.resWrap}>
@@ -575,7 +936,6 @@ function PredictPage() {
       </div>
     );
 
-  // FORM
   return (
     <div style={s.predWrap}>
       <div style={s.predHead}>
@@ -585,9 +945,7 @@ function PredictPage() {
           Complétez les 4 étapes pour obtenir votre estimation
         </p>
       </div>
-
       <div style={s.formCard}>
-        {/* Step bar */}
         <div style={s.stepBar}>
           {steps.map((st, i) => (
             <div key={st.id} style={s.stepItem}>
@@ -614,8 +972,6 @@ function PredictPage() {
             </div>
           ))}
         </div>
-
-        {/* Body */}
         <div style={s.formBody}>
           <div style={s.formStepHead}>
             <span style={s.stepCount}>
@@ -657,7 +1013,20 @@ function PredictPage() {
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [page, setPage] = useState("home");
+  const [user, setUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("ap_user"));
+    } catch {
+      return null;
+    }
+  });
+
+  const [page, setPage] = useState(() => {
+    const token = localStorage.getItem("ap_token");
+    const saved = localStorage.getItem("ap_user");
+    return token && saved ? "home" : "auth";
+  });
+
   const [apiStatus, setApiStatus] = useState(null);
   const [particles] = useState(() =>
     Array.from({ length: 25 }, (_, i) => ({
@@ -676,15 +1045,47 @@ export default function App() {
       .catch(() => setApiStatus("offline"));
   }, []);
 
+  const handleAuthSuccess = (userData) => {
+    setUser(userData);
+    setPage("home");
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("ap_token");
+    localStorage.removeItem("ap_user");
+    setUser(null);
+    setPage("auth");
+  };
+
+  if (page === "auth") {
+    return (
+      <>
+        <AuthPage onSuccess={handleAuthSuccess} />
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+          *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+          body{background:#04090f;overflow-x:hidden;}
+          input::placeholder{color:rgba(232,220,200,0.22);}
+          input:focus{outline:none;border-color:#c9a227!important;box-shadow:0 0 0 3px rgba(201,162,39,0.14);}
+          button{font-family:'DM Sans',sans-serif;cursor:pointer;}
+          button:hover{filter:brightness(1.08);}
+        `}</style>
+      </>
+    );
+  }
+
   return (
     <div style={s.root}>
       <AnimatedBg particles={particles} />
-      <Header page={page} onNav={setPage} apiStatus={apiStatus} />
-      {page === "home" ? (
-        <HomePage onStart={() => setPage("predict")} />
-      ) : (
-        <PredictPage />
-      )}
+      <Header
+        page={page}
+        onNav={setPage}
+        apiStatus={apiStatus}
+        user={user}
+        onLogout={handleLogout}
+      />
+      {page === "home" && <HomePage onStart={() => setPage("predict")} />}
+      {page === "predict" && <PredictPage />}
       <footer style={s.footer}>
         AutoPredict TN · Powered by FastAPI + MLflow + React · © 2026
       </footer>
@@ -695,6 +1096,7 @@ export default function App() {
         @keyframes float{0%,100%{transform:translateY(0);opacity:.45}50%{transform:translateY(-26px);opacity:.9}}
         @keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
         @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(201,162,39,.4)}50%{box-shadow:0 0 18px 6px rgba(201,162,39,.2)}}
+        @keyframes zoom{0%{transform:scale(1)}100%{transform:scale(1.05)}}
         select option{background:#0a1625;color:#e8dcc8;}
         input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
         input::placeholder{color:rgba(232,220,200,.22);}
@@ -703,6 +1105,19 @@ export default function App() {
         button:hover{filter:brightness(1.08);}
         ::-webkit-scrollbar{width:5px;}
         ::-webkit-scrollbar-thumb{background:#c9a22733;border-radius:3px;}
+
+        /* Hover effects for showcase cards */
+        .showcaseCard:hover .showcaseImg {
+          transform: scale(1.1);
+        }
+        .showcaseCard:hover {
+          transform: scale(1.02);
+          box-shadow: 0 25px 40px -10px rgba(201, 162, 39, 0.4);
+        }
+        .showcaseBtn:hover {
+          background: gold;
+          color: #04090f;
+        }
       `}</style>
     </div>
   );
@@ -717,16 +1132,17 @@ const s = {
     position: "relative",
   },
 
-  // BG
   bg: { position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" },
   bgGrad1: {
-    position: "absolute",
+    position: "fixed",
     inset: 0,
+    zIndex: 0,
     background:
       "radial-gradient(ellipse 90% 70% at 15% 5%, #081422 0%, #04090f 65%)",
+    pointerEvents: "none",
   },
   bgGrad2: {
-    position: "absolute",
+    position: "fixed",
     bottom: "-20%",
     right: "-8%",
     width: "700px",
@@ -734,9 +1150,11 @@ const s = {
     borderRadius: "50%",
     background:
       "radial-gradient(circle,rgba(201,162,39,0.05)0%,transparent 70%)",
+    pointerEvents: "none",
+    zIndex: 0,
   },
   bgGrad3: {
-    position: "absolute",
+    position: "fixed",
     top: "30%",
     left: "-5%",
     width: "400px",
@@ -744,13 +1162,17 @@ const s = {
     borderRadius: "50%",
     background:
       "radial-gradient(circle,rgba(30,60,100,0.12)0%,transparent 70%)",
+    pointerEvents: "none",
+    zIndex: 0,
   },
   grid: {
-    position: "absolute",
+    position: "fixed",
     inset: 0,
+    zIndex: 0,
     backgroundImage:
       "linear-gradient(rgba(201,162,39,0.022)1px,transparent 1px),linear-gradient(90deg,rgba(201,162,39,0.022)1px,transparent 1px)",
     backgroundSize: "70px 70px",
+    pointerEvents: "none",
   },
   particle: {
     position: "absolute",
@@ -759,7 +1181,138 @@ const s = {
     animation: "float linear infinite",
   },
 
-  // HEADER
+  authPage: {
+    minHeight: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "24px",
+    position: "relative",
+    overflow: "hidden",
+    fontFamily: "'DM Sans',sans-serif",
+    color: "#e8dcc8",
+  },
+  authCard: {
+    position: "absolute",
+    zIndex: 10,
+    width: "100%",
+    maxWidth: "480px",
+    background: "rgba(8,18,32,0.92)",
+    border: `1px solid rgba(201,162,39,0.22)`,
+    borderRadius: "28px",
+    padding: "44px 40px 32px",
+    backdropFilter: "blur(28px)",
+    boxShadow: "0 40px 80px rgba(0,0,0,0.55)",
+  },
+  authLogo: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "10px",
+    marginBottom: "16px",
+  },
+  authBadge: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "7px 18px",
+    background: goldDim,
+    border: `1px solid rgba(201,162,39,0.3)`,
+    borderRadius: "20px",
+    fontSize: "12px",
+    color: gold,
+    letterSpacing: "0.5px",
+    marginBottom: "20px",
+  },
+  authTabs: {
+    display: "flex",
+    background: "rgba(255,255,255,0.03)",
+    borderRadius: "12px",
+    padding: "4px",
+    marginBottom: "16px",
+    border: `1px solid ${goldDim}`,
+  },
+  authTab: {
+    flex: 1,
+    padding: "9px",
+    border: "none",
+    borderRadius: "9px",
+    background: "transparent",
+    color: "rgba(232,220,200,0.4)",
+    fontSize: "14px",
+    fontWeight: "500",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    fontFamily: "'DM Sans',sans-serif",
+  },
+  authTabActive: { background: goldDim, color: gold, fontWeight: "700" },
+  authSub: {
+    textAlign: "center",
+    fontSize: "13px",
+    color: "rgba(232,220,200,0.42)",
+    marginBottom: "22px",
+    letterSpacing: "0.3px",
+    lineHeight: 1.6,
+  },
+  authBtn: {
+    width: "100%",
+    padding: "14px",
+    background: `linear-gradient(135deg,${gold},#9e7b16)`,
+    border: "none",
+    borderRadius: "12px",
+    color: "#04090f",
+    fontSize: "15px",
+    fontWeight: "700",
+    cursor: "pointer",
+    boxShadow: "0 10px 28px rgba(201,162,39,0.3)",
+    transition: "all 0.25s",
+    fontFamily: "'DM Sans',sans-serif",
+    marginBottom: "16px",
+  },
+
+  fg: { display: "flex", flexDirection: "column", gap: "5px" },
+  lbl: {
+    fontSize: "10px",
+    letterSpacing: "1.5px",
+    textTransform: "uppercase",
+    color: gold,
+    opacity: 0.72,
+  },
+  inp: {
+    width: "100%",
+    padding: "11px 14px",
+    background: "rgba(255,255,255,0.04)",
+    border: `1px solid rgba(201,162,39,0.2)`,
+    borderRadius: "11px",
+    color: "#e8dcc8",
+    fontSize: "14px",
+    fontFamily: "'DM Sans',sans-serif",
+    transition: "border-color 0.2s",
+    boxSizing: "border-box",
+  },
+  icoL: {
+    position: "absolute",
+    left: "11px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    fontSize: "13px",
+    pointerEvents: "none",
+    opacity: 0.5,
+    zIndex: 1,
+  },
+  eyeBtn: {
+    position: "absolute",
+    right: "10px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    background: "transparent",
+    border: "none",
+    fontSize: "14px",
+    cursor: "pointer",
+    opacity: 0.5,
+    padding: "2px",
+  },
+
   header: {
     position: "relative",
     zIndex: 100,
@@ -777,7 +1330,7 @@ const s = {
     width: "100%",
     display: "flex",
     alignItems: "center",
-    gap: "28px",
+    gap: "20px",
   },
   logo: {
     display: "flex",
@@ -822,27 +1375,75 @@ const s = {
     letterSpacing: ".5px",
     whiteSpace: "nowrap",
   },
+  userArea: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    flexShrink: 0,
+  },
+  userAvatar: {
+    width: "30px",
+    height: "30px",
+    borderRadius: "50%",
+    background: `linear-gradient(135deg,${gold},#9e7b16)`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "13px",
+    fontWeight: "700",
+    color: "#04090f",
+    flexShrink: 0,
+  },
+  userName: {
+    fontSize: "12px",
+    color: "rgba(232,220,200,0.65)",
+    maxWidth: "120px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  logoutBtn: {
+    padding: "5px 12px",
+    background: "transparent",
+    border: "1px solid rgba(255,68,85,0.3)",
+    borderRadius: "8px",
+    color: "#ff8899",
+    fontSize: "11px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    whiteSpace: "nowrap",
+  },
 
-  // HOME HERO
+  // HOME PAGE
   heroSection: {
     position: "relative",
     zIndex: 10,
-    minHeight: "86vh",
+    minHeight: "90vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     padding: "80px 24px 60px",
     overflow: "hidden",
   },
-  carSilhouette: {
+  heroBackground: {
     position: "absolute",
-    bottom: "-10px",
-    left: "50%",
-    transform: "translateX(-50%)",
-    width: "900px",
-    height: "240px",
-    pointerEvents: "none",
-    opacity: 1,
+    inset: 0,
+    zIndex: 0,
+    backgroundImage:
+      "url('https://i.pinimg.com/1200x/9f/6b/b5/9f6bb5e1dd1c086b00812bf6df3050c4.jpg')",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    filter: "brightness(0.7)",
+    transition: "transform 0.3s ease",
+    animation: "zoom 20s infinite alternate",
+  },
+  heroOverlay: {
+    position: "absolute",
+    inset: 0,
+    zIndex: 1,
+    background:
+      "radial-gradient(circle at 30% 50%, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 100%)",
   },
   heroContent: {
     maxWidth: "800px",
@@ -866,20 +1467,22 @@ const s = {
   },
   heroTitle: {
     fontFamily: "'Bebas Neue',sans-serif",
-    fontSize: "clamp(50px,9vw,88px)",
-    lineHeight: 1.06,
+    fontSize: "clamp(32px, 6vw, 60px)",
+    lineHeight: 1.2,
     letterSpacing: "2px",
     marginBottom: "24px",
     animation: "fadeUp 0.5s 0.2s both",
+    textShadow: "0 2px 10px rgba(0,0,0,0.5)",
   },
   heroGold: { color: gold, textShadow: "0 0 50px rgba(201,162,39,0.3)" },
   heroDesc: {
     fontSize: "clamp(14px,1.8vw,16px)",
     lineHeight: 1.8,
-    color: "rgba(232,220,200,0.58)",
+    color: "rgba(232,220,200,0.9)",
     maxWidth: "560px",
     margin: "0 auto 38px",
     animation: "fadeUp 0.5s 0.3s both",
+    textShadow: "0 1px 4px rgba(0,0,0,0.6)",
   },
   heroBtns: {
     display: "flex",
@@ -906,11 +1509,11 @@ const s = {
   ctaArrow: { fontSize: "18px" },
   ctaNote: {
     fontSize: "12px",
-    color: "rgba(232,220,200,0.3)",
+    color: "rgba(232,220,200,0.7)",
     letterSpacing: "1px",
+    textShadow: "0 1px 3px rgba(0,0,0,0.5)",
   },
 
-  // STATS
   statsSection: {
     position: "relative",
     zIndex: 10,
@@ -948,14 +1551,97 @@ const s = {
     textTransform: "uppercase",
   },
 
-  // FEATURES
-  featSection: {
+  // Nouvelle section showcase
+  showcaseSection: {
     position: "relative",
     zIndex: 10,
-    maxWidth: "1100px",
+    maxWidth: "1200px",
     margin: "0 auto",
-    padding: "20px 24px 80px",
+    padding: "40px 24px 80px",
   },
+  showcaseGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: "30px",
+    marginTop: "40px",
+  },
+  showcaseCard: {
+    position: "relative",
+    borderRadius: "20px",
+    overflow: "hidden",
+    height: "380px",
+    display: "flex",
+    alignItems: "flex-end",
+    padding: "24px",
+    transition: "transform 0.3s ease, box-shadow 0.3s ease",
+    animation: "fadeUp 0.5s both",
+    cursor: "pointer",
+    boxShadow: "0 20px 30px -10px rgba(0,0,0,0.5)",
+  },
+  showcaseImg: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    transition: "transform 0.5s ease",
+    zIndex: 0,
+  },
+  showcaseOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    background:
+      "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.3) 70%, transparent 100%)",
+    zIndex: 1,
+  },
+  showcaseContent: {
+    position: "relative",
+    zIndex: 2,
+    color: "#fff",
+    width: "100%",
+    textShadow: "0 2px 5px rgba(0,0,0,0.5)",
+  },
+  showcaseTitle: {
+    fontFamily: "'Bebas Neue', sans-serif",
+    fontSize: "28px",
+    letterSpacing: "1px",
+    marginBottom: "6px",
+    color: gold,
+    lineHeight: 1.2,
+  },
+  showcasePrice: {
+    fontSize: "22px",
+    fontWeight: "700",
+    marginBottom: "8px",
+    color: "#fff",
+  },
+  showcaseSpecs: {
+    fontSize: "13px",
+    opacity: 0.8,
+    marginBottom: "16px",
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+  showcaseBtn: {
+    background: "transparent",
+    border: `1px solid ${gold}`,
+    color: gold,
+    padding: "8px 18px",
+    borderRadius: "30px",
+    fontSize: "13px",
+    fontWeight: "600",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    fontFamily: "'DM Sans', sans-serif",
+  },
+
+  // Pour compatibilité avec l'ancien secHead / secTitle (déjà utilisés)
   secHead: { textAlign: "center", marginBottom: "48px" },
   secTag: {
     fontSize: "11px",
@@ -971,89 +1657,8 @@ const s = {
     marginTop: "12px",
     lineHeight: 1.1,
   },
-  featGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))",
-    gap: "18px",
-  },
-  featCard: {
-    padding: "30px 26px",
-    background: "rgba(10,22,37,0.7)",
-    border: `1px solid ${goldDim}`,
-    borderRadius: "18px",
-    backdropFilter: "blur(12px)",
-    animation: "fadeUp 0.5s both",
-    transition: "border-color 0.3s",
-  },
-  featIcon: { fontSize: "34px", marginBottom: "14px" },
-  featTitle: {
-    fontFamily: "'Bebas Neue',sans-serif",
-    fontSize: "21px",
-    letterSpacing: "1px",
-    marginBottom: "10px",
-  },
-  featDesc: {
-    fontSize: "14px",
-    lineHeight: 1.7,
-    color: "rgba(232,220,200,0.5)",
-  },
 
-  // BOTTOM CTA
-  bottomCta: {
-    position: "relative",
-    zIndex: 10,
-    padding: "20px 24px 100px",
-    display: "flex",
-    justifyContent: "center",
-  },
-  ctaBox: {
-    position: "relative",
-    maxWidth: "680px",
-    width: "100%",
-    padding: "56px 44px",
-    background: "rgba(10,22,37,0.75)",
-    border: `1px solid rgba(201,162,39,0.22)`,
-    borderRadius: "24px",
-    textAlign: "center",
-    backdropFilter: "blur(20px)",
-    overflow: "hidden",
-  },
-  ctaBoxGlow: {
-    position: "absolute",
-    top: "-60%",
-    left: "50%",
-    transform: "translateX(-50%)",
-    width: "500px",
-    height: "500px",
-    borderRadius: "50%",
-    background:
-      "radial-gradient(circle,rgba(201,162,39,0.07)0%,transparent 70%)",
-    pointerEvents: "none",
-  },
-  ctaBoxTitle: {
-    fontFamily: "'Bebas Neue',sans-serif",
-    fontSize: "clamp(26px,5vw,44px)",
-    letterSpacing: "2px",
-    marginBottom: "10px",
-  },
-  ctaBoxSub: {
-    fontSize: "15px",
-    color: "rgba(232,220,200,0.45)",
-    marginBottom: "30px",
-  },
-  ctaLarge: {
-    padding: "15px 42px",
-    background: `linear-gradient(135deg,${gold},#9e7b16)`,
-    border: "none",
-    borderRadius: "13px",
-    color: "#04090f",
-    fontSize: "15px",
-    fontWeight: "700",
-    boxShadow: "0 10px 28px rgba(201,162,39,0.28)",
-    transition: "all 0.25s",
-  },
-
-  // PREDICT
+  // Styles pour PredictPage (inchangés)
   predWrap: {
     position: "relative",
     zIndex: 10,
@@ -1081,8 +1686,6 @@ const s = {
     backdropFilter: "blur(24px)",
     boxShadow: "0 40px 80px rgba(0,0,0,0.5)",
   },
-
-  // STEP BAR
   stepBar: {
     display: "flex",
     alignItems: "center",
@@ -1131,8 +1734,6 @@ const s = {
     margin: "0 10px",
     transition: "background 0.3s",
   },
-
-  // FORM BODY
   formBody: { padding: "34px" },
   formStepHead: { marginBottom: "26px" },
   stepCount: {
@@ -1235,7 +1836,6 @@ const s = {
     transition: "all 0.2s",
   },
 
-  // RESULT
   resWrap: {
     position: "relative",
     zIndex: 10,
@@ -1312,7 +1912,6 @@ const s = {
     transition: "all 0.2s",
   },
 
-  // FOOTER
   footer: {
     position: "relative",
     zIndex: 10,
@@ -1325,3 +1924,7 @@ const s = {
     borderTop: `1px solid ${goldDim}`,
   },
 };
+
+// Ajout de l'animation zoom pour l'image de fond (déjà inclus dans le style global)
+// document.head.appendChild... n'est pas nécessaire car on a mis @keyframes dans le style global.
+// On peut le retirer pour éviter les doublons.
