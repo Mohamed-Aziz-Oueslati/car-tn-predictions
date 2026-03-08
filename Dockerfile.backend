@@ -16,10 +16,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 COPY modeling.py .
 COPY preprocessing.py .
-COPY imputer.py .
 COPY main.py .
+COPY database.py .
+COPY models.py .
+COPY schemas.py .
+COPY auth.py .
 COPY best_model.pkl .
 COPY automobile_tn_data_imputed.csv .
+COPY .env .
 
 EXPOSE 8000
 

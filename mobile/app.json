@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "AutoPredict TN",
+    "slug": "autopredict-tn",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#04090f"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.autopredict.tn"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#04090f"
+      },
+      "package": "com.autopredict.tn"
+    },
+    "plugins": [
+      "expo-asset"
+    ]
+  }
+}

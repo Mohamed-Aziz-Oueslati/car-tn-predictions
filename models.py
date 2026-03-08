@@ -11,3 +11,4 @@ class User(Base):
     password   = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     is_active  = Column(Boolean, default=True)
+    telephone  = Column(String(20), nullable=True)

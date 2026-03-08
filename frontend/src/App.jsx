@@ -6,104 +6,24 @@ const gold = "#c9a227";
 const goldDim = "rgba(201,162,39,0.15)";
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
-const MARQUES = [
-  "Toyota",
-  "Volkswagen",
-  "Renault",
-  "Peugeot",
-  "Hyundai",
-  "Kia",
-  "Ford",
-  "BMW",
-  "Mercedes",
-  "Audi",
-  "Citroën",
-  "Nissan",
-  "Honda",
-  "Fiat",
-  "Dacia",
-  "Seat",
-  "Opel",
-  "Chevrolet",
-  "Suzuki",
-  "Mazda",
-  "Abarth",
-  "Alfa Romeo",
-  "BAIC YX",
-  "BYD",
-  "Cadillac",
-  "Changan",
-  "Chery",
-  "Cupra",
-  "DS",
-  "Dongfeng",
-  "GWM",
-  "Geely",
-  "Hummer",
-  "Infiniti",
-  "Isuzu",
-  "Jaguar",
-  "Jeep",
-  "Jetour",
-  "Lancia",
-  "Land Rover",
-  "Lexus",
+// Fallback defaults (overridden by /options endpoint)
+const DEFAULT_OPTIONS = {
+  Marque: [],
+  Energie: [],
+  Boite_vitesse: [],
+  Transmission: [],
+  Carrosserie: [],
+  Gouvernorat: [],
+  Couleur_exterieure: [],
+  Couleur_interieure: [],
+  Sellerie: [],
+};
+
+const selectFields = [
+  "Marque", "Energie", "Boite_vitesse", "Transmission",
+  "Carrosserie", "Gouvernorat", "Couleur_exterieure",
+  "Couleur_interieure", "Sellerie",
 ];
-const ENERGIES = ["Essence", "Diesel", "Hybride", "Électrique", "GPL"];
-const BOITES = ["Manuelle", "Automatique", "Semi-automatique"];
-const TRANSMISSIONS = ["Traction avant", "Propulsion", "4x4", "Intégrale"];
-const CARROSSERIES = [
-  "Berline",
-  "SUV",
-  "Citadine",
-  "Break",
-  "Coupé",
-  "Cabriolet",
-  "Monospace",
-  "Pick-up",
-];
-const GOUVERNORATS = [
-  "Tunis",
-  "Ariana",
-  "Ben Arous",
-  "Manouba",
-  "Nabeul",
-  "Zaghouan",
-  "Bizerte",
-  "Béja",
-  "Jendouba",
-  "Kef",
-  "Siliana",
-  "Sousse",
-  "Monastir",
-  "Mahdia",
-  "Sfax",
-  "Kairouan",
-  "Kasserine",
-  "Sidi Bouzid",
-  "Gabès",
-  "Medenine",
-  "Tataouine",
-  "Gafsa",
-  "Tozeur",
-  "Kébili",
-];
-const COULEURS_EXT = [
-  "Blanc",
-  "Noir",
-  "Gris",
-  "Argent",
-  "Bleu",
-  "Rouge",
-  "Vert",
-  "Beige",
-  "Marron",
-  "Orange",
-  "Jaune",
-  "Bordeaux",
-];
-const COULEURS_INT = ["Noir", "Beige", "Gris", "Crème", "Marron", "Rouge"];
-const SELLERIES = ["Tissu", "Cuir", "Semi-cuir", "Alcantara"];
 
 const initialForm = {
   Marque: "",
@@ -184,17 +104,7 @@ const fieldLabels = {
   age_voiture: "Âge du véhicule (ans)",
 };
 
-const selectOptions = {
-  Marque: MARQUES,
-  Energie: ENERGIES,
-  Boite_vitesse: BOITES,
-  Transmission: TRANSMISSIONS,
-  Carrosserie: CARROSSERIES,
-  Gouvernorat: GOUVERNORATS,
-  Couleur_exterieure: COULEURS_EXT,
-  Couleur_interieure: COULEURS_INT,
-  Sellerie: SELLERIES,
-};
+
 
 const numericFields = [
   "Kilometrage",
@@ -296,8 +206,7 @@ function AuthPage({ onSuccess }) {
         mode === "login"
           ? { email: form.email, password: form.password }
           : {
-              nom: form.nom,
-              prenom: form.prenom,
+              full_name: `${form.prenom} ${form.nom}`,
               email: form.email,
               password: form.password,
               telephone: form.telephone || null,
@@ -809,10 +718,41 @@ function PredictPage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [options, setOptions] = useState(DEFAULT_OPTIONS);
+  const [ranges, setRanges] = useState({});
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    { id: "w", role: "bot", text: '👋 Je suis votre assistant IA automobile.\n\nDécrivez-moi une voiture (ex: "Peugeot 308 diesel 2019", "Golf 7 automatique 80000 km") et je remplirai le formulaire.' },
+  ]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+
+  // Fetch possible values from the backend on mount
+  useEffect(() => {
+    fetch(`${API_URL}/options`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.options) setOptions((prev) => ({ ...prev, ...data.options }));
+        if (data.numeric_ranges) setRanges(data.numeric_ranges);
+      })
+      .catch(() => {
+        /* keep defaults on failure */
+      });
+  }, []);
 
   const cur = steps[step];
+
+  const rangeError = (field) => {
+    const r = ranges[field];
+    if (!r || form[field] === "" || form[field] === null) return null;
+    const v = Number(form[field]);
+    if (v < r.min || v > r.max) return `Valeur entre ${r.min} et ${r.max}`;
+    return null;
+  };
+
   const isValid = () =>
-    cur.fields.every((f) => form[f] !== "" && form[f] !== null);
+    cur.fields.every((f) => form[f] !== "" && form[f] !== null) &&
+    cur.fields.filter((f) => numericFields.includes(f)).every((f) => !rangeError(f));
 
   const handleChange = (k, v) => {
     setForm((p) => ({ ...p, [k]: v }));
@@ -835,6 +775,57 @@ function PredictPage() {
     setStep(0);
     setResult(null);
     setError(null);
+  };
+
+  // ─── Chatbot logic ──────────────────────────────────────────────
+  const addChatMsg = (msg) =>
+    setChatMessages((prev) => [...prev, { ...msg, id: String(Date.now()) + Math.random() }]);
+
+  const buildChatHistory = () =>
+    chatMessages.filter((m) => m.id !== "w").map((m) => ({ role: m.role === "bot" ? "bot" : "user", text: m.text }));
+
+  const chatSend = async (text) => {
+    const q = (text || chatInput).trim();
+    if (!q || chatLoading) return;
+    addChatMsg({ role: "user", text: q });
+    setChatInput("");
+    setChatLoading(true);
+    try {
+      const history = buildChatHistory();
+      const res = await fetch(`${API_URL}/autofill`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q, history }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Erreur serveur");
+      if (data.matched && !data.parse_error) {
+        const hasFields = Object.keys(data).some((k) => fieldLabels[k] && data[k] != null);
+        addChatMsg({ role: "bot", text: data.message || "🎯 Caractéristiques identifiées :", autofillData: hasFields ? data : undefined });
+      } else {
+        addChatMsg({ role: "bot", text: data.message || "❌ Je n'ai pas pu identifier cette voiture." });
+      }
+    } catch (e) {
+      addChatMsg({ role: "bot", text: `⚠️ ${e.message}` });
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const applyAutofill = (data) => {
+    const newForm = { ...form };
+    const fields = [
+      "Marque", "Energie", "Boite_vitesse", "Transmission", "Carrosserie",
+      "Gouvernorat", "Couleur_exterieure", "Couleur_interieure", "Sellerie",
+      "Puissance_fiscale", "Puissance_ch", "Nombre_places", "Nombre_portes",
+      "Cylindree", "Kilometrage", "Proprietaires", "age_voiture",
+    ];
+    fields.forEach((k) => {
+      if (data[k] != null && data[k] !== "") newForm[k] = String(data[k]);
+    });
+    setForm(newForm);
+    setStep(0);
+    addChatMsg({ role: "bot", text: "✅ Formulaire rempli ! Vous pouvez ajuster les valeurs." });
   };
 
   const handleSubmit = async () => {
@@ -868,7 +859,7 @@ function PredictPage() {
   };
 
   const renderField = (field) => {
-    if (selectOptions[field])
+    if (selectFields.includes(field))
       return (
         <div key={field} style={s.fieldGroup}>
           <label style={s.label}>{fieldLabels[field]}</label>
@@ -879,7 +870,7 @@ function PredictPage() {
               style={s.select}
             >
               <option value="">— Sélectionner —</option>
-              {selectOptions[field].map((o) => (
+              {(options[field] || []).map((o) => (
                 <option key={o} value={o}>
                   {o}
                 </option>
@@ -889,17 +880,27 @@ function PredictPage() {
           </div>
         </div>
       );
+    const r = ranges[field];
+    const rErr = rangeError(field);
     return (
       <div key={field} style={s.fieldGroup}>
-        <label style={s.label}>{fieldLabels[field]}</label>
+        <label style={s.label}>
+          {fieldLabels[field]}
+          {r && <span style={s.rangeHint}> ({r.min} – {r.max})</span>}
+        </label>
         <input
           type="number"
           value={form[field]}
           onChange={(e) => handleChange(field, e.target.value)}
-          placeholder="0"
-          min="0"
-          style={s.input}
+          placeholder={r ? `${r.min} – ${r.max}` : "0"}
+          min={r ? r.min : 0}
+          max={r ? r.max : undefined}
+          style={{
+            ...s.input,
+            ...(rErr ? { borderColor: "rgba(255,68,85,0.6)" } : {}),
+          }}
         />
+        {rErr && <span style={s.fieldErr}>{rErr}</span>}
       </div>
     );
   };
@@ -1007,6 +1008,66 @@ function PredictPage() {
           </div>
         </div>
       </div>
+
+      {/* Chatbot FAB */}
+      <button onClick={() => setChatOpen((o) => !o)} style={s.chatFab}>
+        {chatOpen ? "✕" : "🤖"}
+      </button>
+
+      {/* Chatbot Panel */}
+      {chatOpen && (
+        <div style={s.chatPanel}>
+          <div style={s.chatHeader}>
+            <span style={{ fontSize: 22 }}>🤖</span>
+            <div>
+              <div style={{ fontWeight: 700, color: "#e8dcc8", fontSize: 14 }}>AutoBot IA</div>
+              <div style={{ fontSize: 11, color: "rgba(232,220,200,0.4)" }}>Propulsé par Gemini</div>
+            </div>
+            <button onClick={() => { setChatMessages([{ id: "w", role: "bot", text: '👋 Décrivez-moi une voiture et je remplirai le formulaire.' }]); }} style={s.chatResetBtn}>🔄</button>
+          </div>
+          <div style={s.chatBody} ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}>
+            {chatMessages.map((msg) => (
+              <div key={msg.id} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", marginBottom: 10 }}>
+                {msg.role === "bot" && <span style={{ fontSize: 18, marginRight: 6, marginTop: 2 }}>🤖</span>}
+                <div style={msg.role === "bot" ? s.chatBubbleBot : s.chatBubbleUser}>
+                  <div style={{ fontSize: 13, lineHeight: "20px", color: msg.role === "bot" ? "#e8dcc8" : "#04090f", whiteSpace: "pre-wrap" }}>{msg.text}</div>
+                  {msg.autofillData && (
+                    <div style={s.chatPreview}>
+                      {Object.entries(msg.autofillData).filter(([k]) => fieldLabels[k] && msg.autofillData[k] != null).map(([k, v]) => (
+                        <div key={k} style={s.chatPreviewRow}>
+                          <span style={{ fontSize: 11, color: "rgba(232,220,200,0.4)" }}>{fieldLabels[k]}</span>
+                          <span style={{ fontSize: 12, color: gold, fontWeight: 600 }}>{String(v)}</span>
+                        </div>
+                      ))}
+                      <button onClick={() => applyAutofill(msg.autofillData)} style={s.chatApplyBtn}>✅ Appliquer au formulaire</button>
+                    </div>
+                  )}
+
+                </div>
+                {msg.role === "user" && <span style={{ fontSize: 18, marginLeft: 6, marginTop: 2 }}>👤</span>}
+              </div>
+            ))}
+            {chatLoading && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 18 }}>🤖</span>
+                <div style={{ ...s.chatBubbleBot, fontStyle: "italic", fontSize: 12, color: "rgba(232,220,200,0.4)" }}>Recherche en cours…</div>
+              </div>
+            )}
+          </div>
+          <div style={s.chatInputRow}>
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && chatSend()}
+              placeholder='Décrivez votre voiture…'
+              style={s.chatInput}
+              disabled={chatLoading}
+            />
+            <button onClick={() => chatSend()} disabled={!chatInput.trim() || chatLoading} style={{ ...s.chatSendBtn, opacity: chatInput.trim() && !chatLoading ? 1 : 0.4 }}>➤</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1803,6 +1864,17 @@ const s = {
     color: "#ff8899",
     marginBottom: "18px",
   },
+  rangeHint: {
+    fontSize: "9px",
+    opacity: 0.55,
+    fontWeight: 400,
+    letterSpacing: "0.5px",
+  },
+  fieldErr: {
+    fontSize: "11px",
+    color: "#ff8899",
+    marginTop: "2px",
+  },
   btnRow: { display: "flex", gap: "10px", justifyContent: "flex-end" },
   backBtn: {
     padding: "12px 22px",
@@ -1922,6 +1994,139 @@ const s = {
     letterSpacing: "1.5px",
     textTransform: "uppercase",
     borderTop: `1px solid ${goldDim}`,
+  },
+
+  // ─── Chatbot styles ────────────────────────────────────────────
+  chatFab: {
+    position: "fixed",
+    bottom: 28,
+    right: 28,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    background: gold,
+    border: "none",
+    fontSize: 26,
+    cursor: "pointer",
+    zIndex: 1000,
+    boxShadow: `0 6px 24px rgba(201,162,39,0.4)`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "transform 0.2s",
+    color: "#04090f",
+    fontWeight: 700,
+  },
+  chatPanel: {
+    position: "fixed",
+    bottom: 96,
+    right: 28,
+    width: 380,
+    maxHeight: "70vh",
+    background: "#04090f",
+    border: `1px solid ${goldDim}`,
+    borderRadius: 20,
+    zIndex: 999,
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+  },
+  chatHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "14px 18px",
+    background: "rgba(201,162,39,0.08)",
+    borderBottom: `1px solid ${goldDim}`,
+  },
+  chatResetBtn: {
+    marginLeft: "auto",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    background: "rgba(255,255,255,0.06)",
+    border: "none",
+    fontSize: 14,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  chatBody: {
+    flex: 1,
+    overflowY: "auto",
+    padding: "14px",
+    maxHeight: "50vh",
+  },
+  chatBubbleBot: {
+    maxWidth: "80%",
+    background: "rgba(201,162,39,0.1)",
+    border: `1px solid rgba(201,162,39,0.2)`,
+    borderRadius: "16px 16px 16px 4px",
+    padding: 12,
+  },
+  chatBubbleUser: {
+    maxWidth: "80%",
+    background: gold,
+    borderRadius: "16px 16px 4px 16px",
+    padding: 12,
+  },
+  chatPreview: {
+    marginTop: 10,
+    background: "rgba(0,0,0,0.2)",
+    borderRadius: 12,
+    padding: 10,
+  },
+  chatPreviewRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "3px 0",
+    borderBottom: "1px solid rgba(255,255,255,0.05)",
+  },
+  chatApplyBtn: {
+    marginTop: 10,
+    width: "100%",
+    padding: "10px",
+    background: gold,
+    border: "none",
+    borderRadius: 10,
+    color: "#04090f",
+    fontWeight: 700,
+    fontSize: 13,
+    cursor: "pointer",
+  },
+  chatInputRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "10px 14px",
+    borderTop: `1px solid ${goldDim}`,
+    background: "rgba(8,18,32,0.95)",
+  },
+  chatInput: {
+    flex: 1,
+    background: "rgba(255,255,255,0.06)",
+    border: `1px solid rgba(201,162,39,0.2)`,
+    borderRadius: 20,
+    padding: "10px 16px",
+    fontSize: 14,
+    color: "#e8dcc8",
+    outline: "none",
+  },
+  chatSendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    background: gold,
+    border: "none",
+    fontSize: 16,
+    color: "#04090f",
+    fontWeight: 700,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
 };
 

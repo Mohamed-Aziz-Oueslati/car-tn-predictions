@@ -14,6 +14,8 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
 from jose import JWTError, jwt
+from google import genai
+import json as json_module
 
 # ─── Ajouts pour SQLAlchemy et OAuth2 ──────────────────────────────
 from database import get_db, engine
@@ -26,6 +28,10 @@ import models
 Base.metadata.create_all(bind=engine)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
+# ─── Gemini LLM client ───────────────────────────────────────────────
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+
 # ─── App ─────────────────────────────────────────────────────────────
 app = FastAPI(title="Car Price Prediction API")
 
@@ -33,9 +39,7 @@ app = FastAPI(title="Car Price Prediction API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
-        "http://localhost",
-        "http://localhost:80",
+      "*"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -54,7 +58,7 @@ else:
     model = None
 
 # ─── Base de données PostgreSQL ───────────────────────────────────────
-DATABASE_URL = "postgresql://postgres:yasmine123@localhost:5432/automarket"
+DATABASE_URL = os.getenv("DATABASE_URL")
 engine = create_engine(DATABASE_URL)
 
 # ─── Config JWT ───────────────────────────────────────────
@@ -105,8 +109,7 @@ class CarAnnonce(BaseModel):
     image_url: Optional[str] = None
 
 class UserRegister(BaseModel):
-    nom: str
-    prenom: str
+    full_name: str
     email: str
     password: str
     telephone: Optional[str] = None
@@ -157,6 +160,195 @@ def health_check():
     if model:
         return {"status": "ok", "model_loaded": True}
     return {"status": "degraded", "model_loaded": False}
+
+# ─── Options (valeurs possibles issues du CSV) ───────────────────────
+CSV_PATH = "automobile_tn_data_imputed.csv"
+
+@app.get("/options")
+def get_options():
+    """Return unique values for each field from the imputed CSV."""
+    if not os.path.exists(CSV_PATH):
+        raise HTTPException(status_code=404, detail="CSV data file not found")
+    try:
+        df = pd.read_csv(CSV_PATH)
+
+        # Helper: coerce a column to numeric (handles "999 999" style strings)
+        def to_numeric(series):
+            return pd.to_numeric(
+                series.astype(str).str.replace(r"\s+", "", regex=True),
+                errors="coerce",
+            )
+
+        categorical_cols = [
+            "Marque", "Energie", "Boite_vitesse", "Transmission",
+            "Carrosserie", "Gouvernorat", "Couleur_exterieure",
+            "Couleur_interieure", "Sellerie",
+        ]
+        numeric_cols = [
+            "Puissance_fiscale", "Puissance_ch", "Nombre_places",
+            "Nombre_portes", "Cylindree",
+        ]
+        range_cols = [
+            "Kilometrage", "Puissance_fiscale", "Puissance_ch",
+            "Nombre_places", "Nombre_portes", "Cylindree",
+        ]
+
+        options = {}
+        for col in categorical_cols:
+            if col in df.columns:
+                options[col] = sorted(df[col].dropna().unique().tolist())
+        for col in numeric_cols:
+            if col in df.columns:
+                vals = to_numeric(df[col]).dropna()
+                options[col] = sorted([int(v) if v == int(v) else v for v in vals.unique().tolist()])
+        # Min / max ranges for numeric inputs
+        numeric_ranges = {}
+        for col in range_cols:
+            if col in df.columns:
+                vals = to_numeric(df[col]).dropna()
+                numeric_ranges[col] = {
+                    "min": int(vals.min()),
+                    "max": int(vals.max()),
+                }
+        # Derive age_voiture range from Mise_en_circulation
+        if "Mise_en_circulation" in df.columns:
+            years = df["Mise_en_circulation"].dropna().apply(
+                lambda x: int(str(x).split(".")[-1]) if "." in str(x) else int(x)
+            )
+            current_year = 2026
+            numeric_ranges["age_voiture"] = {
+                "min": current_year - int(years.max()),
+                "max": current_year - int(years.min()),
+            }
+
+        return {"options": options, "numeric_ranges": numeric_ranges}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading options: {str(e)}")
+
+# ─── Modèles par marque ──────────────────────────────────────────────
+@app.get("/models/{marque}")
+def get_models_by_brand(marque: str):
+    """Return the list of known models for a given brand."""
+    if not os.path.exists(CSV_PATH):
+        raise HTTPException(status_code=404, detail="CSV data file not found")
+    df = pd.read_csv(CSV_PATH)
+    filtered = df[df["Marque"].str.lower() == marque.lower()]
+    if filtered.empty:
+        return {"models": []}
+    models = sorted(filtered["Modele"].dropna().unique().tolist())
+    return {"models": models}
+
+# ─── Autofill via Gemini LLM ─────────────────────────────────────────
+class AutofillRequest(BaseModel):
+    query: str       # e.g. "Peugeot 308 diesel 2019" or "je cherche une golf 7 automatique"
+    history: list = []  # optional chat history [{"role":"user"|"bot","text":"..."}]
+
+@app.post("/autofill")
+async def autofill_car(req: AutofillRequest):
+    """Use Gemini LLM to extract car characteristics from a natural-language query."""
+    if not gemini_client:
+        raise HTTPException(status_code=503, detail="Gemini API key not configured. Set GEMINI_API_KEY env variable.")
+    if not req.query.strip():
+        raise HTTPException(status_code=400, detail="Query is empty")
+
+    try:
+        # Build list of valid options from CSV so the LLM picks real values
+        valid_options = {}
+        if os.path.exists(CSV_PATH):
+            df = pd.read_csv(CSV_PATH)
+            for col in ["Marque", "Energie", "Boite_vitesse", "Transmission",
+                        "Carrosserie", "Gouvernorat", "Couleur_exterieure",
+                        "Couleur_interieure", "Sellerie"]:
+                if col in df.columns:
+                    valid_options[col] = sorted(df[col].dropna().unique().tolist())
+
+        system_prompt = f"""Tu es un expert automobile tunisien. L'utilisateur décrit une voiture et tu dois extraire les caractéristiques techniques pour une prédiction de prix.
+
+Réponds TOUJOURS en JSON valide avec ces champs (met null si tu ne peux pas déterminer) :
+{{
+  "matched": true,
+  "message": "<court résumé de la voiture identifiée>",
+  "Marque": "<marque>",
+  "Energie": "<Essence|Diesel|Electrique|Hybride|GPL>",
+  "Boite_vitesse": "<Manuelle|Automatique>",
+  "Transmission": "<Traction avant|Propulsion|Intégrale|4x4>",
+  "Carrosserie": "<Berline|SUV|Citadine|Compacte|Break|Cabriolet|Coupé|Pick-up|Monospace|Utilitaire>",
+  "Puissance_fiscale": <int CV fiscaux>,
+  "Puissance_ch": <int chevaux>,
+  "Nombre_places": <int>,
+  "Nombre_portes": <int>,
+  "Cylindree": <int cc>,
+  "Kilometrage": null
+  "Proprietaires": <int>,
+  "age_voiture": <int âge en années depuis 2026>,
+  "Gouvernorat": null,
+  "Couleur_exterieure": null,
+  "Couleur_interieure": null,
+  "Sellerie": null
+}}
+
+RÈGLES IMPORTANTES :
+- Utilise tes connaissances automobiles pour remplir un maximum de champs.
+- Pour la Marque, choisis UNIQUEMENT parmi : {valid_options.get('Marque', [])}
+- Pour Energie, choisis parmi : {valid_options.get('Energie', [])}
+- Pour Boite_vitesse, choisis parmi : {valid_options.get('Boite_vitesse', [])}
+- Pour Transmission, choisis parmi : {valid_options.get('Transmission', [])}
+- Pour Carrosserie, choisis parmi : {valid_options.get('Carrosserie', [])}
+- Si l'utilisateur mentionne une année (ex: 2019), calcule age_voiture = 2026 - année.
+- Réponds UNIQUEMENT avec le JSON, sans texte autour, sans markdown.
+- Si la description ne correspond à aucune voiture connue, mets "matched": false et dans "message" explique pourquoi."""
+
+        # Build conversation for context
+        contents = []
+        # Add conversation history if provided
+        for msg in req.history[-6:]:  # last 6 messages for context
+            role = "user" if msg.get("role") == "user" else "model"
+            contents.append(genai.types.Content(
+                role=role,
+                parts=[genai.types.Part(text=msg.get("text", ""))]
+            ))
+        # Add current query
+        contents.append(genai.types.Content(
+            role="user",
+            parts=[genai.types.Part(text=req.query.strip())]
+        ))
+
+        response = gemini_client.models.generate_content(
+            model="gemini-3.1-flash-lite-preview",
+            contents=contents,
+            config=genai.types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=0.1,
+                max_output_tokens=1024,
+            ),
+        )
+
+        raw = response.text.strip()
+        # Strip markdown fences if present
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[-1]
+        if raw.endswith("```"):
+            raw = raw.rsplit("```", 1)[0]
+        raw = raw.strip()
+
+        result = json_module.loads(raw)
+
+        # Ensure matched field exists
+        if "matched" not in result:
+            result["matched"] = True
+
+        return result
+
+    except json_module.JSONDecodeError:
+        return {
+            "matched": True,
+            "message": raw if 'raw' in dir() else "Réponse non structurée du LLM",
+            "parse_error": True,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Autofill error: {str(e)}")
 
 # ─── Prédiction prix ─────────────────────────────────────────────────
 @app.post("/predict")
@@ -310,8 +502,9 @@ async def upload_image(file: UploadFile = File(...)):
         path = f"static/images/{filename}"
         with open(path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+        base_url = os.getenv("BASE_URL", "http://localhost:8000")
         return {
-            "image_url": f"http://localhost:8000/static/images/{filename}",
+            "image_url": f"{base_url}/static/images/{filename}",
             "filename": filename
         }
     except HTTPException:
@@ -331,14 +524,13 @@ def register(user: UserRegister):
             if existing:
                 raise HTTPException(status_code=400, detail="Cet email est déjà utilisé")
             result = conn.execute(text("""
-                INSERT INTO users (nom, prenom, email, password_hash, telephone)
-                VALUES (:nom, :prenom, :email, :password_hash, :telephone)
-                RETURNING id, nom, prenom, email
+                INSERT INTO users (full_name, email, password, telephone)
+                VALUES (:full_name, :email, :password, :telephone)
+                RETURNING id, full_name, email
             """), {
-                "nom":           user.nom,
-                "prenom":        user.prenom,
+                "full_name": user.full_name,
                 "email":         user.email,
-                "password_hash": hash_password(user.password),
+                "password": hash_password(user.password),
                 "telephone":     user.telephone,
             })
             conn.commit()
@@ -349,8 +541,7 @@ def register(user: UserRegister):
                 "token_type":   "bearer",
                 "user": {
                     "id":     row.id,
-                    "nom":    row.nom,
-                    "prenom": row.prenom,
+                    "full_name": row.full_name,
                     "email":  row.email,
                 }
             }
@@ -367,7 +558,7 @@ def login(user: UserLogin):
                 text("SELECT * FROM users WHERE email = :email"),
                 {"email": user.email}
             ).fetchone()
-            if not row or not verify_password(user.password, row.password_hash):
+            if not row or not verify_password(user.password, row.password):
                 raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
             token = create_token({"sub": str(row.id), "email": row.email})
             return {
@@ -375,8 +566,7 @@ def login(user: UserLogin):
                 "token_type":   "bearer",
                 "user": {
                     "id":     row.id,
-                    "nom":    row.nom,
-                    "prenom": row.prenom,
+                   "full_name": row.full_name,
                     "email":  row.email,
                 }
             }
@@ -418,6 +608,7 @@ def register_oauth(user: UserCreate, db: Session = Depends(get_db)):
         email=user.email,
         password=hash_password(user.password)
     )
+    print(new_user)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
