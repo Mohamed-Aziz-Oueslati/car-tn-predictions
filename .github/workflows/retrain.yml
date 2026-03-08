@@ -1,0 +1,48 @@
+name: Monthly Model Retraining
+
+on:
+  # Run on the 1st of every month at 03:00 UTC
+  schedule:
+    - cron: "0 3 1 * *"
+  # Also allow manual trigger from GitHub Actions tab
+  workflow_dispatch:
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run training
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python main.py
+
+      - name: Commit and push new model
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add best_model.pkl
+          # Only commit if the model file actually changed
+          if git diff --cached --quiet; then
+            echo "No changes to best_model.pkl, skipping commit."
+          else
+            git commit -m "chore: retrain model $(date +'%Y-%m-%d')"
+            git push
+          fi
