@@ -77,7 +77,6 @@ class CarData(BaseModel):
     Puissance_ch: Optional[int] = None
     Transmission: str
     Carrosserie: str
-    Proprietaires: int
     Gouvernorat: str
     Couleur_exterieure: Optional[str] = None
     Couleur_interieure: Optional[str] = None
@@ -278,8 +277,7 @@ Réponds TOUJOURS en JSON valide avec ces champs (met null si tu ne peux pas dé
   "Nombre_places": <int>,
   "Nombre_portes": <int>,
   "Cylindree": <int cc>,
-  "Kilometrage": null
-  "Proprietaires": <int>,
+  "Kilometrage": null,
   "age_voiture": <int âge en années depuis 2026>,
   "Gouvernorat": null,
   "Couleur_exterieure": null,

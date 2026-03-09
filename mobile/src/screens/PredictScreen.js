@@ -162,7 +162,6 @@ export default function PredictScreen({ navigation }) {
       Nombre_portes: "Nombre_portes",
       Cylindree: "Cylindree",
       Kilometrage: "Kilometrage",
-      Proprietaires: "Proprietaires",
       age_voiture: "age_voiture",
     };
     Object.entries(fieldMap).forEach(([apiKey, formKey]) => {

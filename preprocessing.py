@@ -22,19 +22,24 @@ def preprocessing(paths):
     for path in paths[1:]:
         df = pd.concat([df, pd.read_csv(path, dtype={'Mise_en_circulation': str})], ignore_index=True)
     
+    Q1 = df["Price"].quantile(0.25)
+    Q3 = df["Price"].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    df = df[~((df["Price"] < lower_bound) | (df["Price"] > upper_bound)).any(axis=1)]
+
     df["Mise_en_circulation"] = df["Mise_en_circulation"].apply(lambda x: date_fix(x))
     print(df['Mise_en_circulation'].unique())
     df['Mise_en_circulation'] = pd.to_datetime(df['Mise_en_circulation'], format="%m.%Y")
     today = pd.Timestamp.today()
     df["age_voiture"] = (today - df["Mise_en_circulation"]).dt.days / 365.25
     
-    X = df.drop(["Price", "Equipements", "Date_annonce", "URL", "Mise_en_circulation", "Title", "Modele", "Etat_general"], axis=1)
+    X = df.drop(["Price", "Equipements", "Date_annonce", "URL", "Mise_en_circulation", "Title", "Modele", "Etat_general","Proprietaires"], axis=1)
     y = df["Price"].apply(lambda x: float(x.split(" ")[0]))
     
-    print(y)
-    
     numeric_features = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
-    categorical_features = ["Couleur_exterieure", "Proprietaires", "Couleur_interieure", "Gouvernorat", "Sellerie"]
+    categorical_features = ["Couleur_exterieure", "Couleur_interieure", "Gouvernorat", "Sellerie"]
     
     categorical_processing = Pipeline([
         ('imputer', SimpleImputer(strategy='most_frequent')),

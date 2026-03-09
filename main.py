@@ -1,2 +1,5 @@
+import glob
 import modeling
-modeling.modeling(["automobile_tn_data_imputed.csv"])
+
+csv_files = glob.glob("*_imputed.csv")
+modeling.modeling(csv_files)

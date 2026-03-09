@@ -34,7 +34,6 @@ const initialForm = {
   Puissance_ch: "",
   Transmission: "",
   Carrosserie: "",
-  Proprietaires: "",
   Gouvernorat: "",
   Couleur_exterieure: "",
   Couleur_interieure: "",
@@ -74,7 +73,7 @@ const steps = [
     id: 3,
     title: "Historique",
     icon: "📋",
-    fields: ["age_voiture", "Kilometrage", "Proprietaires", "Gouvernorat"],
+    fields: ["age_voiture", "Kilometrage", "Gouvernorat"],
   },
   {
     id: 4,
@@ -93,7 +92,6 @@ const fieldLabels = {
   Puissance_ch: "Puissance (ch)",
   Transmission: "Transmission",
   Carrosserie: "Carrosserie",
-  Proprietaires: "Nombre de propriétaires",
   Gouvernorat: "Gouvernorat",
   Couleur_exterieure: "Couleur extérieure",
   Couleur_interieure: "Couleur intérieure",
@@ -110,7 +108,6 @@ const numericFields = [
   "Kilometrage",
   "Puissance_fiscale",
   "Puissance_ch",
-  "Proprietaires",
   "Nombre_places",
   "Nombre_portes",
   "Cylindree",
@@ -818,7 +815,7 @@ function PredictPage() {
       "Marque", "Energie", "Boite_vitesse", "Transmission", "Carrosserie",
       "Gouvernorat", "Couleur_exterieure", "Couleur_interieure", "Sellerie",
       "Puissance_fiscale", "Puissance_ch", "Nombre_places", "Nombre_portes",
-      "Cylindree", "Kilometrage", "Proprietaires", "age_voiture",
+      "Cylindree", "Kilometrage", "age_voiture",
     ];
     fields.forEach((k) => {
       if (data[k] != null && data[k] !== "") newForm[k] = String(data[k]);
