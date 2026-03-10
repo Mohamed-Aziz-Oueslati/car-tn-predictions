@@ -19,7 +19,6 @@ import { fieldLabels } from "../data";
 const WELCOME_TEXT =
   "👋 Bonjour ! Je suis votre assistant IA automobile.\n\nDécrivez-moi la voiture que vous cherchez et je remplirai le formulaire pour vous.\n\nExemples :\n• \"Peugeot 308 diesel 2019\"\n• \"Golf 7 automatique 80 000 km\"\n• \"je cherche une Clio 4 essence manuelle\"";
 
-// ─── Chat message component ──────────────────────────────────────────────────
 function ChatMessage({ msg, onApply }) {
   const fade = useRef(new Animated.Value(0)).current;
   const slide = useRef(new Animated.Value(20)).current;
@@ -55,7 +54,7 @@ function ChatMessage({ msg, onApply }) {
           {msg.text}
         </Text>
 
-        {/* Show autofill summary */}
+        {}
         {msg.autofillData && (
           <View style={cs.autofillPreview}>
             {Object.entries(msg.autofillData)
@@ -81,7 +80,6 @@ function ChatMessage({ msg, onApply }) {
   );
 }
 
-// ─── Main ChatBot Component ─────────────────────────────────────────────────
 export default function ChatBot({ visible, onClose, onAutofill }) {
   const [messages, setMessages] = useState([
     { id: "welcome", role: "bot", text: WELCOME_TEXT },
@@ -103,7 +101,6 @@ export default function ChatBot({ visible, onClose, onAutofill }) {
     }, 100);
   };
 
-  // Build chat history for LLM context
   const buildHistory = () =>
     messages
       .filter((m) => m.id !== "welcome")
@@ -173,7 +170,7 @@ export default function ChatBot({ visible, onClose, onAutofill }) {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={cs.container}>
-          {/* Header */}
+          {}
           <View style={cs.header}>
             <View style={cs.headerLeft}>
               <Text style={cs.headerEmoji}>🤖</Text>
@@ -192,7 +189,7 @@ export default function ChatBot({ visible, onClose, onAutofill }) {
             </View>
           </View>
 
-          {/* Messages */}
+          {}
           <FlatList
             ref={flatListRef}
             data={messages}
@@ -205,7 +202,7 @@ export default function ChatBot({ visible, onClose, onAutofill }) {
             onContentSizeChange={scrollToEnd}
           />
 
-          {/* Loading indicator */}
+          {}
           {loading && (
             <View style={cs.typingRow}>
               <Text style={cs.avatar}>🤖</Text>
@@ -216,7 +213,7 @@ export default function ChatBot({ visible, onClose, onAutofill }) {
             </View>
           )}
 
-          {/* Input */}
+          {}
           <View style={cs.inputRow}>
             <TextInput
               style={cs.input}
@@ -246,7 +243,6 @@ export default function ChatBot({ visible, onClose, onAutofill }) {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 const cs = StyleSheet.create({
   overlay: {
     flex: 1,
@@ -263,7 +259,6 @@ const cs = StyleSheet.create({
     overflow: "hidden",
   },
 
-  // Header
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -296,7 +291,6 @@ const cs = StyleSheet.create({
   },
   headerBtnText: { fontSize: 16, color: colors.textDim },
 
-  // Messages
   messageList: { flex: 1 },
   messageContent: { paddingHorizontal: 14, paddingVertical: 10 },
 
@@ -332,7 +326,6 @@ const cs = StyleSheet.create({
   msgTextBot: { color: colors.text },
   msgTextUser: { color: colors.bg, fontWeight: "500" },
 
-  // Autofill preview
   autofillPreview: {
     marginTop: 10,
     backgroundColor: "rgba(0,0,0,0.2)",
@@ -371,7 +364,6 @@ const cs = StyleSheet.create({
     fontSize: 13,
   },
 
-  // Typing indicator
   typingRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -394,7 +386,6 @@ const cs = StyleSheet.create({
     fontStyle: "italic",
   },
 
-  // Input row
   inputRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -1,11 +1,7 @@
-// ─── API Configuration ───────────────────────────────────────────────────────
-// For Android emulator use 10.0.2.2, for real device use your machine's LAN IP.
-// Change this to match your backend address.
 const API_URL = "http://192.168.0.3:8000";
 
 export { API_URL };
 
-// ─── Auth helpers ────────────────────────────────────────────────────────────
 export async function loginUser(email, password) {
   const res = await fetch(`${API_URL}/auth/login`, {
     method: "POST",
@@ -28,7 +24,6 @@ export async function registerUser({ full_name, email, password, telephone }) {
   return data;
 }
 
-// ─── Options & Predict ───────────────────────────────────────────────────────
 export async function fetchOptions() {
   const res = await fetch(`${API_URL}/options`);
   const data = await res.json();

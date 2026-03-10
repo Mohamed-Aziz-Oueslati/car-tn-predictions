@@ -46,7 +46,6 @@ class VenteVoitureTunisieScraper:
         return text if text and len(text) > 0 else None
     
     def extract_marque_modele(self, title):
-        """Extract brand and model from title like 'KIA PICANTO'"""
         if not title:
             return None, None
         
@@ -175,7 +174,6 @@ class VenteVoitureTunisieScraper:
         return car_data
     
     def load_page_with_retry(self, url, max_retries=3):
-        """Load a page with retry logic for timeout errors."""
         for attempt in range(max_retries):
             try:
                 self.driver.get(url)
@@ -208,7 +206,6 @@ class VenteVoitureTunisieScraper:
                 logger.info(f"      Already scraped, skipping...")
                 return True
             
-            # Open car page in a new tab to preserve listing page state
             original_window = self.driver.current_window_handle
             self.driver.execute_script("window.open('');")
             self.driver.switch_to.window(self.driver.window_handles[-1])
@@ -226,7 +223,6 @@ class VenteVoitureTunisieScraper:
             
             car_data = self.extract_car_data(self.driver.page_source, url)
             
-            # Close the car tab and switch back to listing page
             self.driver.close()
             self.driver.switch_to.window(original_window)
             
@@ -248,7 +244,6 @@ class VenteVoitureTunisieScraper:
         except Exception as e:
             logger.error(f"      Error: {str(e)[:60]}")
             self.consecutive_failures += 1
-            # Ensure we're back on the listing tab
             try:
                 if len(self.driver.window_handles) > 1:
                     self.driver.close()
@@ -268,7 +263,6 @@ class VenteVoitureTunisieScraper:
             logger.info("Resuming scraping...\n")
     
     def get_car_links_from_page(self, soup):
-        """Extract all car listing links from the page"""
         links = []
         for a in soup.find_all('a', href=True):
             href = a['href']
@@ -281,14 +275,12 @@ class VenteVoitureTunisieScraper:
         return links
     
     def has_next_page(self, soup):
-        """Check if there's a next page (>>> link)"""
         for a in soup.find_all('a', href=True):
             if '>>>' in a.get_text():
                 return True
         return False
     
     def click_next_page(self, max_retries=10):
-        """Click the next page button using JavaScript with retry logic"""
         for attempt in range(max_retries):
             try:
                 next_link = self.driver.find_element("xpath", "//a[contains(text(), '>>>')]") 
@@ -323,7 +315,6 @@ class VenteVoitureTunisieScraper:
         return False
     
     def scrape_all_pages(self):
-        """Scrape all listing pages until no more pages remain"""
         logger.info(f"\nStarting scraping from listing page...")
         
         if not self.load_page_with_retry(self.LISTING_URL):
@@ -349,8 +340,6 @@ class VenteVoitureTunisieScraper:
                 logger.info(f"   [{idx}/{len(links)}] Scraping...")
                 self.scrape_car(car_url)
             
-            # Listing page is still active (car pages were opened in new tabs)
-            # Simply click >>> once to go to the next page
             soup = BeautifulSoup(self.driver.page_source, 'html.parser')
             if not self.has_next_page(soup):
                 logger.info("   No more pages available")

@@ -105,7 +105,7 @@ export default function AuthScreen({ navigation }) {
         contentContainerStyle={st.scroll}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Logo */}
+        {}
         <View style={st.logoRow}>
           <Text style={st.logoMark}>◈</Text>
           <Text style={st.logoText}>
@@ -113,12 +113,12 @@ export default function AuthScreen({ navigation }) {
           </Text>
         </View>
 
-        {/* Badge */}
+        {}
         <Text style={st.badge}>
           {mode === "login" ? "🔑 Espace membre" : "🚀 Créer un compte"}
         </Text>
 
-        {/* Tabs */}
+        {}
         <View style={st.tabs}>
           <TouchableOpacity
             onPress={() => switchMode("login")}
@@ -148,7 +148,7 @@ export default function AuthScreen({ navigation }) {
             : "Créez votre compte gratuit en quelques secondes."}
         </Text>
 
-        {/* Register-only fields */}
+        {}
         {mode === "register" && (
           <View style={st.row}>
             <View style={st.halfField}>
@@ -174,7 +174,7 @@ export default function AuthScreen({ navigation }) {
           </View>
         )}
 
-        {/* Email */}
+        {}
         <View style={st.field}>
           <Text style={st.label}>Adresse e-mail</Text>
           <TextInput
@@ -188,7 +188,7 @@ export default function AuthScreen({ navigation }) {
           />
         </View>
 
-        {/* Phone (register only) */}
+        {}
         {mode === "register" && (
           <View style={st.field}>
             <Text style={st.label}>
@@ -205,7 +205,7 @@ export default function AuthScreen({ navigation }) {
           </View>
         )}
 
-        {/* Password */}
+        {}
         <View style={st.field}>
           <Text style={st.label}>Mot de passe</Text>
           <View style={st.passWrap}>
@@ -226,7 +226,7 @@ export default function AuthScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Confirm (register only) */}
+        {}
         {mode === "register" && (
           <View style={st.field}>
             <Text style={st.label}>Confirmer le mot de passe</Text>
@@ -249,7 +249,7 @@ export default function AuthScreen({ navigation }) {
           </View>
         )}
 
-        {/* Messages */}
+        {}
         {success && (
           <View style={st.successBox}>
             <Text style={st.successText}>{success}</Text>
@@ -261,7 +261,7 @@ export default function AuthScreen({ navigation }) {
           </View>
         )}
 
-        {/* Submit */}
+        {}
         <TouchableOpacity
           onPress={submit}
           disabled={loading}
@@ -277,7 +277,7 @@ export default function AuthScreen({ navigation }) {
           )}
         </TouchableOpacity>
 
-        {/* Switch mode */}
+        {}
         <TouchableOpacity
           onPress={() => switchMode(mode === "login" ? "register" : "login")}
           style={st.switchBtn}

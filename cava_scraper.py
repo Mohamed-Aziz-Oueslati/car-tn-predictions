@@ -15,7 +15,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# Mapping from JSON product_* keys to CSV column names
 PRODUCT_KEY_TO_COLUMN = {
     'product_Marque de voiture': 'Marque',
     'product_model': 'Modele',
@@ -60,7 +59,6 @@ class CavaScraper:
         self.required_columns = self._load_columns()
 
     def _load_columns(self):
-        """Read column names from the reference CSV."""
         ref = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.REFERENCE_CSV)
         if os.path.exists(ref):
             cols = list(pd.read_csv(ref, nrows=0).columns)
@@ -85,7 +83,6 @@ class CavaScraper:
         return text if text else None
 
     def get_page(self, url, max_retries=3):
-        """Fetch a page with retry logic."""
         for attempt in range(max_retries):
             try:
                 resp = self.session.get(url, timeout=15)
@@ -99,13 +96,11 @@ class CavaScraper:
         return None
 
     def get_car_links(self, html):
-        """Extract detail page links from a listing page."""
         soup = BeautifulSoup(html, 'html.parser')
         links = []
         for a in soup.find_all('a', href=True):
             href = a['href']
             if '/voitures/' in href and href != '/voitures/' and not href.endswith('/voitures'):
-                # Skip search/filter links and similar listing links
                 if '/search?' in href or '/category/' in href:
                     continue
                 full = href if href.startswith('http') else self.BASE_URL + href
@@ -114,7 +109,6 @@ class CavaScraper:
         return links
 
     def extract_json_data(self, html):
-        """Extract the product-details JSON object embedded in the page's script tag."""
         match = re.search(r'"product-details\d+"\s*:\s*(\{.*?)\s*,\s*"lang-data"', html, re.DOTALL)
         if not match:
             return None
@@ -124,45 +118,36 @@ class CavaScraper:
             return None
 
     def extract_car_data(self, html, url):
-        """Extract car data from embedded JSON in the page."""
         car = {}
 
         json_data = self.extract_json_data(html)
         if not json_data:
             return car
 
-        # Title
         if json_data.get('name'):
             car['Title'] = self.clean_text(str(json_data['name']))
 
-        # Price
         if json_data.get('price') is not None:
             car['Price'] = f"{int(json_data['price'])} DT"
 
-        # Gouvernorat from region
         region = json_data.get('region')
         if region and isinstance(region, dict) and region.get('name'):
             car['Gouvernorat'] = region['name']
 
-        # Date_annonce from createdAt
         if json_data.get('createdAt'):
             created = json_data['createdAt']
-            # Extract date part (YYYY-MM-DD)
             date_match = re.match(r'(\d{4}-\d{2}-\d{2})', created)
             if date_match:
                 car['Date_annonce'] = date_match.group(1)
 
-        # Description → Equipements
         if json_data.get('description'):
             car['Equipements'] = self.clean_text(str(json_data['description']))
 
-        # Map product_* keys to CSV columns
         for json_key, csv_col in PRODUCT_KEY_TO_COLUMN.items():
             val = json_data.get(json_key)
             if val is not None:
                 car[csv_col] = self.clean_text(str(val))
 
-        # Post-processing
         if 'Kilometrage' in car:
             car['Kilometrage'] = re.sub(r'[^\d]', '', car['Kilometrage'])
         if 'Mise_en_circulation' in car:
@@ -184,7 +169,6 @@ class CavaScraper:
         return car
 
     def scrape_car(self, url):
-        """Scrape a single car detail page."""
         if url in self.scraped_urls:
             return True
 
@@ -208,7 +192,6 @@ class CavaScraper:
             return False
 
     def scrape_all_pages(self):
-        """Iterate through all listing pages and scrape every car."""
         logger.info("\nStarting scraping from listing page...")
 
         page_num = 1

@@ -19,7 +19,6 @@ import PredictScreen from "./src/screens/PredictScreen";
 
 const Stack = createNativeStackNavigator();
 
-// ─── Header component for main screens ───────────────────────────────────────
 function MainHeader({ navigation, user, apiStatus, onLogout }) {
   return (
     <View style={hdr.container}>
@@ -111,7 +110,6 @@ const hdr = StyleSheet.create({
   logoutText: { fontSize: 14, color: "#ff6677" },
 });
 
-// ─── Tab-like bottom nav for main screens ────────────────────────────────────
 function BottomNav({ current, onNavigate }) {
   const tabs = [
     { key: "Home", icon: "🏠", label: "Accueil" },
@@ -156,7 +154,6 @@ const bn = StyleSheet.create({
   labelActive: { color: colors.gold, fontWeight: "600" },
 });
 
-// ─── Main screen wrapper with tabs ───────────────────────────────────────────
 function MainScreen({ navigation }) {
   const [currentTab, setCurrentTab] = useState("Home");
   const [user, setUser] = useState(null);
@@ -198,7 +195,6 @@ function MainScreen({ navigation }) {
   );
 }
 
-// ─── Root App ────────────────────────────────────────────────────────────────
 export default function App() {
   const [initialRoute, setInitialRoute] = useState(null);
 

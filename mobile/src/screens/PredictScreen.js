@@ -25,7 +25,6 @@ import ChatBot from "../components/ChatBot";
 
 const { width } = Dimensions.get("window");
 
-// ─── Custom Picker Modal ─────────────────────────────────────────────────────
 function PickerModal({ visible, title, options, onSelect, onClose }) {
   const [search, setSearch] = useState("");
   const filtered = options.filter((o) =>
@@ -130,7 +129,6 @@ const pk = StyleSheet.create({
   },
 });
 
-// ─── Predict Screen ──────────────────────────────────────────────────────────
 export default function PredictScreen({ navigation }) {
   const [form, setForm] = useState(initialForm);
   const [step, setStep] = useState(0);
@@ -142,10 +140,8 @@ export default function PredictScreen({ navigation }) {
   const [pickerField, setPickerField] = useState(null);
   const [chatVisible, setChatVisible] = useState(false);
 
-  // Handle autofill from chatbot
   const handleAutofill = (data) => {
     const newForm = { ...form };
-    // Map autofill data to form fields
     const fieldMap = {
       Marque: "Marque",
       Energie: "Energie",
@@ -166,11 +162,19 @@ export default function PredictScreen({ navigation }) {
     };
     Object.entries(fieldMap).forEach(([apiKey, formKey]) => {
       if (data[apiKey] != null && data[apiKey] !== "") {
-        newForm[formKey] = String(data[apiKey]);
+        const val = String(data[apiKey]);
+        if (selectFields.includes(formKey) && options[formKey]) {
+          const match = options[formKey].find((o) => String(o).toLowerCase() === val.toLowerCase());
+          newForm[formKey] = match || val;
+        } else {
+          newForm[formKey] = val;
+        }
       }
     });
     setForm(newForm);
-    setStep(0); // go back to step 1 so user can review
+    setResult(null);
+    setError(null);
+    setStep(0);
   };
 
   useEffect(() => {
@@ -246,7 +250,6 @@ export default function PredictScreen({ navigation }) {
     }
   };
 
-  // ─── Result Screen ──────────────────────────────────────────────
   if (result) {
     const price =
       typeof result.predicted_price === "number"
@@ -299,7 +302,6 @@ export default function PredictScreen({ navigation }) {
     );
   }
 
-  // ─── Form Screen ────────────────────────────────────────────────
   return (
     <View style={st.wrapper}>
     <ScrollView
@@ -307,7 +309,7 @@ export default function PredictScreen({ navigation }) {
       contentContainerStyle={st.formContent}
       keyboardShouldPersistTaps="handled"
     >
-      {/* Header */}
+      {}
       <View style={st.header}>
         <Text style={st.headerTag}>Formulaire de prédiction</Text>
         <Text style={st.headerTitle}>Renseignez votre véhicule</Text>
@@ -316,7 +318,7 @@ export default function PredictScreen({ navigation }) {
         </Text>
       </View>
 
-      {/* Step indicator */}
+      {}
       <View style={st.stepBar}>
         {steps.map((s, i) => (
           <React.Fragment key={s.id}>
@@ -360,7 +362,7 @@ export default function PredictScreen({ navigation }) {
         {cur.icon} {cur.title} — Étape {step + 1}/{steps.length}
       </Text>
 
-      {/* Fields */}
+      {}
       <View style={st.fieldsWrap}>
         {cur.fields.map((field) => {
           if (selectFields.includes(field)) {
@@ -413,14 +415,14 @@ export default function PredictScreen({ navigation }) {
         })}
       </View>
 
-      {/* Error */}
+      {}
       {error && (
         <View style={st.errorBox}>
           <Text style={st.errorText}>⚠ {error}</Text>
         </View>
       )}
 
-      {/* Buttons */}
+      {}
       <View style={st.btnRow}>
         {step > 0 && (
           <TouchableOpacity
@@ -455,7 +457,7 @@ export default function PredictScreen({ navigation }) {
         )}
       </View>
 
-      {/* Picker Modal */}
+      {}
       <PickerModal
         visible={!!pickerField}
         title={pickerField ? fieldLabels[pickerField] : ""}
@@ -465,7 +467,7 @@ export default function PredictScreen({ navigation }) {
       />
     </ScrollView>
 
-    {/* Chatbot FAB */}
+    {}
     <TouchableOpacity
       style={st.chatFab}
       onPress={() => setChatVisible(true)}
@@ -474,7 +476,7 @@ export default function PredictScreen({ navigation }) {
       <Text style={st.chatFabIcon}>🤖</Text>
     </TouchableOpacity>
 
-    {/* Chatbot Modal */}
+    {}
     <ChatBot
       visible={chatVisible}
       onClose={() => setChatVisible(false)}
@@ -484,7 +486,6 @@ export default function PredictScreen({ navigation }) {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 const st = StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: colors.bg },
   container: { flex: 1, backgroundColor: colors.bg },
@@ -495,7 +496,6 @@ const st = StyleSheet.create({
     padding: 20,
   },
 
-  // Header
   header: { alignItems: "center", marginBottom: 24 },
   headerTag: {
     fontSize: 10,
@@ -514,7 +514,6 @@ const st = StyleSheet.create({
   },
   headerSub: { fontSize: 13, color: colors.textDim },
 
-  // Step bar
   stepBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -556,7 +555,6 @@ const st = StyleSheet.create({
     marginBottom: 20,
   },
 
-  // Fields
   fieldsWrap: { gap: 14 },
   fieldGroup: { marginBottom: 2 },
   label: {
@@ -596,7 +594,6 @@ const st = StyleSheet.create({
   selectText: { fontSize: 14, color: colors.text },
   selectArrow: { fontSize: 12, color: colors.gold },
 
-  // Error
   errorBox: {
     backgroundColor: colors.errorBg,
     borderWidth: 1,
@@ -607,7 +604,6 @@ const st = StyleSheet.create({
   },
   errorText: { color: colors.errorText, fontSize: 13 },
 
-  // Buttons
   btnRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -647,7 +643,6 @@ const st = StyleSheet.create({
   },
   submitText: { color: colors.bg, fontSize: 15, fontWeight: "700" },
 
-  // Result
   resultCard: {
     backgroundColor: colors.card,
     borderWidth: 1,
@@ -706,7 +701,6 @@ const st = StyleSheet.create({
   },
   resetText: { color: colors.gold, fontSize: 14 },
 
-  // Chat FAB
   chatFab: {
     position: "absolute",
     bottom: 30,

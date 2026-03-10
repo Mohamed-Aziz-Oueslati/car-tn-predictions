@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""
-Car CSV Imputer using LLM (Groq API with Llama)
-Fills in missing values in car data using AI inference.
-"""
 
 import pandas as pd
 import json
@@ -12,11 +8,9 @@ import time
 import requests
 from pathlib import Path
 
-# Groq API configuration
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
 MODEL = "llama-3.3-70b-versatile"
 
-# API Keys for rotation (add your keys here)
 API_KEYS = [
     "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",
     "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",
@@ -37,30 +31,27 @@ API_KEYS = [
 current_key_index = 0
 
 def get_next_key():
-    """Get the next API key in rotation."""
     global current_key_index
     key = API_KEYS[current_key_index % len(API_KEYS)]
     current_key_index += 1
     return key
 
 
-# Fields that can be imputed based on car knowledge
 IMPUTABLE_FIELDS = [
-    'Carrosserie',      # Body type: SUV, Berline, Hatchback, Coupe, etc.
-    'Puissance_ch',     # Horsepower (can infer from model/engine)
-    'Cylindree',        # Engine displacement
-    'Nombre_places',    # Number of seats
-    'Nombre_portes',    # Number of doors
-    'Transmission',     # Traction, Propulsion, Intégrale
+    'Carrosserie',
+    'Puissance_ch',
+    'Cylindree',
+    'Nombre_places',
+    'Nombre_portes',
+    'Transmission',
 ]
 
 
 def call_llm(prompt, max_retries=3):
-    """Call the Groq LLM API with retry logic and key rotation."""
     keys_tried = 0
     total_keys = len(API_KEYS)
     
-    for attempt in range(max_retries * total_keys):  # Try each key multiple times
+    for attempt in range(max_retries * total_keys):
         api_key = get_next_key()
         
         try:
@@ -82,7 +73,6 @@ def call_llm(prompt, max_retries=3):
             if response.status_code == 429:
                 keys_tried += 1
                 if keys_tried >= total_keys:
-                    # All keys exhausted, wait before retrying
                     wait_time = 2 ** (attempt // total_keys)
                     print(f"\nAll {total_keys} keys rate limited, waiting {wait_time}s...")
                     time.sleep(wait_time)
@@ -108,7 +98,6 @@ def call_llm(prompt, max_retries=3):
 
 
 def parse_json_response(text):
-    """Extract JSON from LLM response."""
     if not text:
         return {}
     
@@ -134,7 +123,6 @@ def parse_json_response(text):
 
 
 def impute_row(row, missing_cols, all_columns):
-    """Impute missing values for a single row using LLM."""
     available = {col: str(val) for col, val in row.items() if pd.notna(val) and str(val).strip()}
     missing_imputable = [col for col in missing_cols if col in IMPUTABLE_FIELDS]
     
@@ -194,7 +182,6 @@ Example: {{"Carrosserie": "SUV", "Puissance_ch": 150}}"""
 
 
 def impute_csv(input_file, output_file=None, limit=None, delay=0.5):
-    """Impute missing values in a car CSV file using LLM."""
     print(f"Loading {input_file}...")
     print(f"Using {len(API_KEYS)} API key(s) for rotation")
     df = pd.read_csv(input_file)
@@ -250,7 +237,6 @@ def impute_csv(input_file, output_file=None, limit=None, delay=0.5):
 
 
 def find_csv_files():
-    """Find all non-imputed CSV files in the same directory as this script."""
     script_dir = Path(__file__).parent
     csv_files = []
     for f in sorted(script_dir.glob("*.csv")):
@@ -269,7 +255,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Override keys if provided via CLI
     if args.keys:
         API_KEYS.clear()
         API_KEYS.extend([k.strip() for k in args.keys.split(",") if k.strip()])

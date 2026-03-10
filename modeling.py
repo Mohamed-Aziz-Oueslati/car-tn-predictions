@@ -9,7 +9,7 @@ import joblib
 from sklearn.metrics import mean_squared_error, r2_score,mean_absolute_error
 import numpy as np
 from xgboost import XGBRegressor
-from lightgbm import LGBMRegressor
+
 
 def modeling(paths):
     X_train, X_test, y_train, y_test, preprocessor = pp.preprocessing(paths)
@@ -71,20 +71,7 @@ def modeling(paths):
                 "model__reg_lambda": [1, 1.5, 2]
             }
         },
-        "LightGBM": {
-            "model": LGBMRegressor(random_state=42, n_jobs=-1, verbose=-1),
-            "params": {
-                "model__n_estimators": [100, 200, 300],
-                "model__learning_rate": [0.01, 0.05, 0.1],
-                "model__max_depth": [3, 5, 7, 9, -1],
-                "model__num_leaves": [31, 50, 70, 100],
-                "model__min_child_samples": [20, 30, 50],
-                "model__subsample": [0.8, 0.9, 1.0],
-                "model__colsample_bytree": [0.8, 0.9, 1.0],
-                "model__reg_alpha": [0, 0.1, 1],
-                "model__reg_lambda": [0, 0.1, 1]
-            }
-        }
+     
     }
     
     best_overall_model = None
@@ -92,7 +79,6 @@ def modeling(paths):
     
     for name, config in models.items():
         with mlflow.start_run(run_name=f"{name}_GridSearch"):
-            # IMPORTANT: Include preprocessor in the pipeline
             pipeline = Pipeline([
                 ('preprocessor', preprocessor),
                 ('model', config["model"])
@@ -106,7 +92,6 @@ def modeling(paths):
                 n_jobs=-1
             )
             
-            # Fit on RAW data (pipeline will handle preprocessing)
             grid_search.fit(X_train, y_train)
             
             best_model = grid_search.best_estimator_
@@ -124,12 +109,10 @@ def modeling(paths):
             print(f"{name} MAE: {mae}")
             print(f"{name} R2: {r2}")
             
-            # Track best model
             if r2 > best_overall_score:
                 best_overall_score = r2
                 best_overall_model = best_model
     
-    # Save the BEST model across all models
     print(f"\nSaving best model with R2: {best_overall_score}")
     joblib.dump(best_overall_model, "best_model.pkl")
     

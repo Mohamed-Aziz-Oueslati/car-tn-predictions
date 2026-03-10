@@ -14,7 +14,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# Mapping from site labels (normalized lowercase) to CSV column names
 LABEL_TO_COLUMN = {
     'marque': 'Marque',
     'modèle': 'Modele',
@@ -85,7 +84,6 @@ class BaniolaScraper:
         self.required_columns = self._load_columns()
 
     def _load_columns(self):
-        """Read column names from the reference CSV."""
         ref = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.REFERENCE_CSV)
         if os.path.exists(ref):
             cols = list(pd.read_csv(ref, nrows=0).columns)
@@ -110,7 +108,6 @@ class BaniolaScraper:
         return text if text else None
 
     def get_page(self, url, max_retries=3):
-        """Fetch a page with retry logic."""
         for attempt in range(max_retries):
             try:
                 resp = self.session.get(url, timeout=15)
@@ -124,7 +121,6 @@ class BaniolaScraper:
         return None
 
     def get_car_links(self, html):
-        """Extract detail page links from a listing page."""
         soup = BeautifulSoup(html, 'html.parser')
         links = []
         for a in soup.find_all('a', href=True):
@@ -136,7 +132,6 @@ class BaniolaScraper:
         return links
 
     def get_next_page_url(self, html):
-        """Find the next pagination link dynamically."""
         soup = BeautifulSoup(html, 'html.parser')
         for a in soup.find_all('a', href=True):
             text = a.get_text(strip=True).lower()
@@ -146,7 +141,6 @@ class BaniolaScraper:
         return None
 
     def _parse_characteristics(self, soup):
-        """Dynamically parse key-value pairs from the Caractéristiques section."""
         parsed = {}
         char_heading = soup.find(
             lambda tag: tag.name in ('h2', 'h3', 'h4', 'strong', 'b')
@@ -155,12 +149,10 @@ class BaniolaScraper:
         if not char_heading:
             return parsed
 
-        # Walk up to the container that holds the spec grid
         container = char_heading.find_parent(['div', 'section'])
         if not container:
             return parsed
 
-        # Strategy 1: look for dt/dd, th/td, or label/value pair elements
         pairs = []
         for dt, dd in zip(container.find_all('dt'), container.find_all('dd')):
             pairs.append((dt.get_text(strip=True), dd.get_text(strip=True)))
@@ -170,12 +162,8 @@ class BaniolaScraper:
             if len(cells) == 2:
                 pairs.append((cells[0].get_text(strip=True), cells[1].get_text(strip=True)))
 
-        # Strategy 2: if no structured pairs found, parse the text block
-        # The text comes out as "MarqueVolkswagen ModèleGolf 7 Année2013..."
-        # We split by known label patterns
         if not pairs:
             text = container.get_text(' ', strip=True)
-            # Find all labels by matching known label keys
             tokens = []
             for label in LABEL_TO_COLUMN:
                 pattern = re.compile(re.escape(label), re.IGNORECASE)
@@ -184,20 +172,16 @@ class BaniolaScraper:
             tokens.sort(key=lambda x: x[0])
 
             for i, (start, end, label) in enumerate(tokens):
-                # Value runs from end of this label to start of next label
                 val_end = tokens[i + 1][0] if i + 1 < len(tokens) else len(text)
                 val = text[end:val_end].strip()
-                # Clean trailing units
                 val = re.sub(r'\s*(km|cv|ch|cm[³3]?|cc)\s*$', '', val, flags=re.IGNORECASE).strip()
                 if val:
                     pairs.append((label, val))
 
-        # Map pairs to column names
         for label, value in pairs:
             normalized = label.lower().strip()
             col = LABEL_TO_COLUMN.get(normalized)
             if not col:
-                # Try partial matching
                 for key, col_name in LABEL_TO_COLUMN.items():
                     if key in normalized or normalized in key:
                         col = col_name
@@ -210,16 +194,13 @@ class BaniolaScraper:
         return parsed
 
     def extract_car_data(self, html, url):
-        """Parse a detail page and extract all available fields."""
         soup = BeautifulSoup(html, 'html.parser')
         car = {}
 
-        # Title
         h1 = soup.find('h1')
         if h1:
             car['Title'] = self.clean_text(h1.get_text())
 
-        # Price: look for TND/DT currency
         page_text = soup.get_text(' ', strip=True)
         price_match = re.search(r'(\d[\d\s]*)\s*TND', page_text)
         if not price_match:
@@ -228,7 +209,6 @@ class BaniolaScraper:
             price_val = price_match.group(1).replace(' ', '')
             car['Price'] = f"{price_val} DT"
 
-        # Location: "Gouvernorat, City" always appears before "Publié le"
         loc_match = re.search(
             r'([A-Za-zÀ-ÿ\s]+),\s*[A-Za-zÀ-ÿ\s]+?\s*Publi[ée]\s*le',
             page_text
@@ -236,17 +216,14 @@ class BaniolaScraper:
         if loc_match:
             car['Gouvernorat'] = self.clean_text(loc_match.group(1))
 
-        # Published date
         date_match = re.search(r'Publi[ée]\s*le\s*[:\s]*(\d{1,2}/\d{1,2}/\d{4})', page_text)
         if date_match:
             parts = date_match.group(1).split('/')
             if len(parts) == 3:
                 car['Date_annonce'] = f"{parts[0].zfill(2)}.{parts[1].zfill(2)}.{parts[2]}"
 
-        # Characteristics (dynamic parsing)
         specs = self._parse_characteristics(soup)
 
-        # Post-process certain fields
         if 'Kilometrage' in specs:
             specs['Kilometrage'] = specs['Kilometrage'].replace(' ', '')
         if 'Mise_en_circulation' in specs:
@@ -262,7 +239,6 @@ class BaniolaScraper:
 
         car.update(specs)
 
-        # Fallback: derive Marque/Modele from breadcrumb links
         if 'Marque' not in car:
             brand_links = soup.find_all('a', href=re.compile(r'/voitures/marques/[^/]+$'))
             if brand_links:
@@ -272,7 +248,6 @@ class BaniolaScraper:
             if model_links:
                 car['Modele'] = self.clean_text(model_links[0].get_text())
 
-        # Fallback: derive Marque/Modele from title
         if 'Marque' not in car and car.get('Title'):
             parts = car['Title'].split(maxsplit=1)
             if parts:
@@ -280,7 +255,6 @@ class BaniolaScraper:
                 if len(parts) > 1:
                     car['Modele'] = parts[1].title()
 
-        # Description → Equipements (grab raw text)
         desc_heading = soup.find(
             lambda tag: tag.name in ('h2', 'h3', 'h4', 'strong')
             and 'description' in tag.get_text(strip=True).lower()
@@ -288,7 +262,6 @@ class BaniolaScraper:
         if desc_heading:
             desc_container = desc_heading.find_parent(['div', 'section'])
             if desc_container:
-                # Get text excluding the heading itself
                 desc_parts = []
                 for child in desc_container.find_all(['p', 'li', 'span', 'div']):
                     t = child.get_text(strip=True)
@@ -301,7 +274,6 @@ class BaniolaScraper:
         return car
 
     def scrape_car(self, url):
-        """Scrape a single car detail page."""
         if url in self.scraped_urls:
             return True
 
@@ -325,7 +297,6 @@ class BaniolaScraper:
             return False
 
     def scrape_all_pages(self):
-        """Iterate through all listing pages and scrape every car."""
         logger.info("\nStarting scraping from listing page...")
 
         page_num = 1

@@ -18,25 +18,20 @@ from jose import JWTError, jwt
 from google import genai
 import json as json_module
 
-# ─── Ajouts pour SQLAlchemy et OAuth2 ──────────────────────────────
 from database import get_db, engine
 from models import Base, User
 from schemas import UserCreate, UserLogin, Token, UserOut
 from auth import hash_password, verify_password, create_access_token, decode_token
 import models
 
-# Crée les tables au démarrage
 Base.metadata.create_all(bind=engine)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-# ─── Gemini LLM client ───────────────────────────────────────────────
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
-# ─── App ─────────────────────────────────────────────────────────────
 app = FastAPI(title="Car Price Prediction API")
 
-# ─── CORS ─────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -47,28 +42,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ─── Static files (images) ────────────────────────────────────────────
 os.makedirs("static/images", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# ─── Modèle ML ───────────────────────────────────────────────────────
 MODEL_PATH = "best_model.pkl"
 if os.path.exists(MODEL_PATH):
     model = joblib.load(MODEL_PATH)
 else:
     model = None
 
-# ─── Base de données PostgreSQL ───────────────────────────────────────
 DATABASE_URL = os.getenv("DATABASE_URL")
 engine = create_engine(DATABASE_URL)
 
-# ─── Config JWT ───────────────────────────────────────────
 SECRET_KEY = "ton_secret_key_change_moi"
 ALGORITHM  = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 heures
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# ─── Schémas Pydantic ─────────────────────────────────────────
 class CarData(BaseModel):
     Marque: str
     Kilometrage: float
@@ -118,7 +108,6 @@ class UserLogin(BaseModel):
     email: str
     password: str
 
-# ─── Fonctions utilitaires Auth ─────────────────────────────
 def hash_password(password: str) -> str:
     truncated = password[:72]
     return pwd_context.hash(truncated)
@@ -133,7 +122,6 @@ def create_token(data: dict) -> str:
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-# ─── ENDPOINTS ────────────────────────────────────────────────────────
 @app.get("/")
 def root():
     return {
@@ -161,9 +149,7 @@ def health_check():
         return {"status": "ok", "model_loaded": True}
     return {"status": "degraded", "model_loaded": False}
 
-# ─── Options (valeurs possibles issues du CSV) ───────────────────────
 def _load_imputed_csvs() -> pd.DataFrame:
-    """Load and concatenate all *_imputed.csv files."""
     csv_files = sorted(glob.glob("*_imputed.csv"))
     if not csv_files:
         raise HTTPException(status_code=404, detail="No imputed CSV data files found")
@@ -172,11 +158,9 @@ def _load_imputed_csvs() -> pd.DataFrame:
 
 @app.get("/options")
 def get_options():
-    """Return unique values for each field from all imputed CSVs."""
     try:
         df = _load_imputed_csvs()
 
-        # Helper: coerce a column to numeric (handles "999 999" style strings)
         def to_numeric(series):
             return pd.to_numeric(
                 series.astype(str).str.replace(r"\s+", "", regex=True),
@@ -205,7 +189,6 @@ def get_options():
             if col in df.columns:
                 vals = to_numeric(df[col]).dropna()
                 options[col] = sorted([int(v) if v == int(v) else v for v in vals.unique().tolist()])
-        # Min / max ranges for numeric inputs
         numeric_ranges = {}
         for col in range_cols:
             if col in df.columns:
@@ -214,7 +197,6 @@ def get_options():
                     "min": int(vals.min()),
                     "max": int(vals.max()),
                 }
-        # Derive age_voiture range from Mise_en_circulation
         if "Mise_en_circulation" in df.columns:
             years = df["Mise_en_circulation"].dropna().apply(
                 lambda x: int(str(x).split(".")[-1]) if "." in str(x) else int(x)
@@ -229,10 +211,8 @@ def get_options():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading options: {str(e)}")
 
-# ─── Modèles par marque ──────────────────────────────────────────────
 @app.get("/models/{marque}")
 def get_models_by_brand(marque: str):
-    """Return the list of known models for a given brand."""
     df = _load_imputed_csvs()
     filtered = df[df["Marque"].str.lower() == marque.lower()]
     if filtered.empty:
@@ -240,21 +220,18 @@ def get_models_by_brand(marque: str):
     models = sorted(filtered["Modele"].dropna().unique().tolist())
     return {"models": models}
 
-# ─── Autofill via Gemini LLM ─────────────────────────────────────────
 class AutofillRequest(BaseModel):
-    query: str       # e.g. "Peugeot 308 diesel 2019" or "je cherche une golf 7 automatique"
-    history: list = []  # optional chat history [{"role":"user"|"bot","text":"..."}]
+    query: str
+    history: list = []
 
 @app.post("/autofill")
 async def autofill_car(req: AutofillRequest):
-    """Use Gemini LLM to extract car characteristics from a natural-language query."""
     if not gemini_client:
         raise HTTPException(status_code=503, detail="Gemini API key not configured. Set GEMINI_API_KEY env variable.")
     if not req.query.strip():
         raise HTTPException(status_code=400, detail="Query is empty")
 
     try:
-        # Build list of valid options from CSV so the LLM picks real values
         valid_options = {}
         try:
             df = _load_imputed_csvs()
@@ -264,7 +241,7 @@ async def autofill_car(req: AutofillRequest):
                 if col in df.columns:
                     valid_options[col] = sorted(df[col].dropna().unique().tolist())
         except Exception:
-            pass  # proceed without options if CSVs unavailable
+            pass
 
         system_prompt = f"""Tu es un expert automobile tunisien. L'utilisateur décrit une voiture et tu dois extraire les caractéristiques techniques pour une prédiction de prix.
 
@@ -301,16 +278,13 @@ RÈGLES IMPORTANTES :
 - Réponds UNIQUEMENT avec le JSON, sans texte autour, sans markdown.
 - Si la description ne correspond à aucune voiture connue, mets "matched": false et dans "message" explique pourquoi."""
 
-        # Build conversation for context
         contents = []
-        # Add conversation history if provided
-        for msg in req.history[-6:]:  # last 6 messages for context
+        for msg in req.history[-6:]:
             role = "user" if msg.get("role") == "user" else "model"
             contents.append(genai.types.Content(
                 role=role,
                 parts=[genai.types.Part(text=msg.get("text", ""))]
             ))
-        # Add current query
         contents.append(genai.types.Content(
             role="user",
             parts=[genai.types.Part(text=req.query.strip())]
@@ -327,7 +301,6 @@ RÈGLES IMPORTANTES :
         )
 
         raw = response.text.strip()
-        # Strip markdown fences if present
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[-1]
         if raw.endswith("```"):
@@ -336,7 +309,6 @@ RÈGLES IMPORTANTES :
 
         result = json_module.loads(raw)
 
-        # Ensure matched field exists
         if "matched" not in result:
             result["matched"] = True
 
@@ -353,7 +325,6 @@ RÈGLES IMPORTANTES :
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Autofill error: {str(e)}")
 
-# ─── Prédiction prix ─────────────────────────────────────────────────
 @app.post("/predict")
 def predict_price(data: CarData):
     if not model:
@@ -397,7 +368,6 @@ def predict_batch(request: dict):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error processing file: {str(e)}")
 
-# ─── Annonces voitures ───────────────────────────────────────────────
 @app.post("/cars")
 def create_car(car: CarAnnonce):
     try:
@@ -490,7 +460,6 @@ def get_car(car_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ─── Upload image ────────────────────────────────────────────────────
 @app.post("/upload-image")
 async def upload_image(file: UploadFile = File(...)):
     try:
@@ -515,7 +484,6 @@ async def upload_image(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ─── Auth Endpoints ────────────────────────────────────────────────
 @app.post("/auth/register")
 def register(user: UserRegister):
     try:
@@ -599,7 +567,6 @@ def get_me(authorization: str = None):
     except Exception:
         raise HTTPException(status_code=401, detail="Token invalide")
 
-# ─── OAuth2 avec SQLAlchemy ────────────────────────────────────────
 @app.post("/register", response_model=Token)
 def register_oauth(user: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == user.email).first()
@@ -641,7 +608,6 @@ def get_me_oauth(token: str = Depends(oauth2_scheme), db: Session = Depends(get_
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
     return user
 
-# ─── Run ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

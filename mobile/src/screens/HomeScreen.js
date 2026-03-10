@@ -66,7 +66,7 @@ const vehicules = [
 export default function HomeScreen({ navigation }) {
   return (
     <ScrollView style={st.container} contentContainerStyle={st.content}>
-      {/* Hero Section */}
+      {}
       <LinearGradient
         colors={["#081422", colors.bg]}
         style={st.hero}
@@ -103,7 +103,7 @@ export default function HomeScreen({ navigation }) {
         <Text style={st.ctaNote}>Gratuit · Instantané · Sans inscription</Text>
       </LinearGradient>
 
-      {/* Stats */}
+      {}
       <View style={st.statsGrid}>
         {stats.map((s, i) => (
           <View key={i} style={st.statCard}>
@@ -113,7 +113,7 @@ export default function HomeScreen({ navigation }) {
         ))}
       </View>
 
-      {/* Showcase */}
+      {}
       <View style={st.section}>
         <Text style={st.sectionTag}>Nos véhicules en vedette</Text>
         <Text style={st.sectionTitle}>
@@ -163,7 +163,6 @@ const st = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   content: { paddingBottom: 20 },
 
-  // Hero
   hero: { padding: 24, paddingTop: 50, alignItems: "center" },
   heroBadge: {
     backgroundColor: colors.goldDim,
@@ -219,7 +218,6 @@ const st = StyleSheet.create({
     letterSpacing: 1,
   },
 
-  // Stats
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -248,7 +246,6 @@ const st = StyleSheet.create({
     marginTop: 4,
   },
 
-  // Section header
   section: { paddingHorizontal: 24, marginTop: 32, marginBottom: 16 },
   sectionTag: {
     fontSize: 10,
@@ -265,7 +262,6 @@ const st = StyleSheet.create({
     lineHeight: 28,
   },
 
-  // Showcase
   showcaseScroll: { paddingLeft: 20, paddingRight: 8 },
   showcaseCard: {
     width: cardWidth,

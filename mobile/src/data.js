@@ -1,4 +1,3 @@
-// ─── Form Data Constants ─────────────────────────────────────────────────────
 export const DEFAULT_OPTIONS = {
   Marque: [],
   Energie: [],

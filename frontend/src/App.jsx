@@ -5,8 +5,6 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const gold = "#c9a227";
 const goldDim = "rgba(201,162,39,0.15)";
 
-// ─── DATA ────────────────────────────────────────────────────────────────────
-// Fallback defaults (overridden by /options endpoint)
 const DEFAULT_OPTIONS = {
   Marque: [],
   Energie: [],
@@ -103,7 +101,6 @@ const fieldLabels = {
 };
 
 
-
 const numericFields = [
   "Kilometrage",
   "Puissance_fiscale",
@@ -114,7 +111,6 @@ const numericFields = [
   "age_voiture",
 ];
 
-// ─── BACKGROUND COMMUN ───────────────────────────────────────────────────────
 function AnimatedBg({ particles }) {
   return (
     <div style={s.bg}>
@@ -140,7 +136,6 @@ function AnimatedBg({ particles }) {
   );
 }
 
-// ─── PAGE AUTH (Login / Sign Up) ─────────────────────────────────────────────
 function AuthPage({ onSuccess }) {
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({
@@ -502,7 +497,6 @@ function AuthPage({ onSuccess }) {
   );
 }
 
-// ─── HEADER ──────────────────────────────────────────────────────────────────
 function Header({ page, onNav, apiStatus, user, onLogout }) {
   return (
     <header style={s.header}>
@@ -568,7 +562,6 @@ function Header({ page, onNav, apiStatus, user, onLogout }) {
   );
 }
 
-// ─── HOME PAGE (avec nouvelle section "Nos véhicules en vedette") ───────────
 function HomePage({ onStart }) {
   const stats = [
     { value: "50K+", label: "Véhicules analysés" },
@@ -622,7 +615,7 @@ function HomePage({ onStart }) {
 
   return (
     <div>
-      {/* Section Hero */}
+      {}
       <section style={s.heroSection}>
         <div style={s.heroBackground}></div>
         <div style={s.heroOverlay}></div>
@@ -655,7 +648,7 @@ function HomePage({ onStart }) {
         </div>
       </section>
 
-      {/* Section Statistiques */}
+      {}
       <section style={s.statsSection}>
         <div style={s.statsGrid}>
           {stats.map((st, i) => (
@@ -667,7 +660,7 @@ function HomePage({ onStart }) {
         </div>
       </section>
 
-      {/* Nouvelle section : Véhicules en vedette */}
+      {}
       <section style={s.showcaseSection}>
         <div style={s.secHead}>
           <span style={s.secTag}>Nos véhicules en vedette</span>
@@ -708,7 +701,6 @@ function HomePage({ onStart }) {
   );
 }
 
-// ─── PREDICT PAGE ─────────────────────────────────────────────────────────────
 function PredictPage() {
   const [form, setForm] = useState(initialForm);
   const [step, setStep] = useState(0);
@@ -724,7 +716,6 @@ function PredictPage() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
 
-  // Fetch possible values from the backend on mount
   useEffect(() => {
     fetch(`${API_URL}/options`)
       .then((res) => res.json())
@@ -733,7 +724,6 @@ function PredictPage() {
         if (data.numeric_ranges) setRanges(data.numeric_ranges);
       })
       .catch(() => {
-        /* keep defaults on failure */
       });
   }, []);
 
@@ -774,7 +764,6 @@ function PredictPage() {
     setError(null);
   };
 
-  // ─── Chatbot logic ──────────────────────────────────────────────
   const addChatMsg = (msg) =>
     setChatMessages((prev) => [...prev, { ...msg, id: String(Date.now()) + Math.random() }]);
 
@@ -818,10 +807,20 @@ function PredictPage() {
       "Cylindree", "Kilometrage", "age_voiture",
     ];
     fields.forEach((k) => {
-      if (data[k] != null && data[k] !== "") newForm[k] = String(data[k]);
+      if (data[k] != null && data[k] !== "") {
+        const val = String(data[k]);
+        if (selectFields.includes(k) && options[k]) {
+          const match = options[k].find((o) => String(o).toLowerCase() === val.toLowerCase());
+          newForm[k] = match || val;
+        } else {
+          newForm[k] = val;
+        }
+      }
     });
     setForm(newForm);
     setStep(0);
+    setResult(null);
+    setError(null);
     addChatMsg({ role: "bot", text: "✅ Formulaire rempli ! Vous pouvez ajuster les valeurs." });
   };
 
@@ -1006,12 +1005,12 @@ function PredictPage() {
         </div>
       </div>
 
-      {/* Chatbot FAB */}
+      {}
       <button onClick={() => setChatOpen((o) => !o)} style={s.chatFab}>
         {chatOpen ? "✕" : "🤖"}
       </button>
 
-      {/* Chatbot Panel */}
+      {}
       {chatOpen && (
         <div style={s.chatPanel}>
           <div style={s.chatHeader}>
@@ -1069,7 +1068,6 @@ function PredictPage() {
   );
 }
 
-// ─── ROOT APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState(() => {
     try {
@@ -1164,7 +1162,6 @@ export default function App() {
         ::-webkit-scrollbar{width:5px;}
         ::-webkit-scrollbar-thumb{background:#c9a22733;border-radius:3px;}
 
-        /* Hover effects for showcase cards */
         .showcaseCard:hover .showcaseImg {
           transform: scale(1.1);
         }
@@ -1181,7 +1178,6 @@ export default function App() {
   );
 }
 
-// ─── STYLES ───────────────────────────────────────────────────────────────────
 const s = {
   root: {
     minHeight: "100vh",
@@ -1472,7 +1468,6 @@ const s = {
     whiteSpace: "nowrap",
   },
 
-  // HOME PAGE
   heroSection: {
     position: "relative",
     zIndex: 10,
@@ -1609,7 +1604,6 @@ const s = {
     textTransform: "uppercase",
   },
 
-  // Nouvelle section showcase
   showcaseSection: {
     position: "relative",
     zIndex: 10,
@@ -1699,7 +1693,6 @@ const s = {
     fontFamily: "'DM Sans', sans-serif",
   },
 
-  // Pour compatibilité avec l'ancien secHead / secTitle (déjà utilisés)
   secHead: { textAlign: "center", marginBottom: "48px" },
   secTag: {
     fontSize: "11px",
@@ -1716,7 +1709,6 @@ const s = {
     lineHeight: 1.1,
   },
 
-  // Styles pour PredictPage (inchangés)
   predWrap: {
     position: "relative",
     zIndex: 10,
@@ -1993,7 +1985,6 @@ const s = {
     borderTop: `1px solid ${goldDim}`,
   },
 
-  // ─── Chatbot styles ────────────────────────────────────────────
   chatFab: {
     position: "fixed",
     bottom: 28,
@@ -2127,6 +2118,3 @@ const s = {
   },
 };
 
-// Ajout de l'animation zoom pour l'image de fond (déjà inclus dans le style global)
-// document.head.appendChild... n'est pas nécessaire car on a mis @keyframes dans le style global.
-// On peut le retirer pour éviter les doublons.
