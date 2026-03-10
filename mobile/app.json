@@ -21,7 +21,20 @@
       "package": "com.autopredict.tn"
     },
     "plugins": [
-      "expo-asset"
-    ]
+      "expo-asset",
+       [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.25"
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "7020ca6a-89a0-41e9-83bb-25e3477e79be"
+      }
+    }
   }
 }

@@ -7,6 +7,7 @@ from typing import Optional
 import pandas as pd
 import joblib
 import os
+import glob
 import shutil
 import uuid
 from sqlalchemy import create_engine, text
@@ -161,15 +162,19 @@ def health_check():
     return {"status": "degraded", "model_loaded": False}
 
 # ─── Options (valeurs possibles issues du CSV) ───────────────────────
-CSV_PATH = "automobile_tn_data_imputed.csv"
+def _load_imputed_csvs() -> pd.DataFrame:
+    """Load and concatenate all *_imputed.csv files."""
+    csv_files = sorted(glob.glob("*_imputed.csv"))
+    if not csv_files:
+        raise HTTPException(status_code=404, detail="No imputed CSV data files found")
+    dfs = [pd.read_csv(f) for f in csv_files]
+    return pd.concat(dfs, ignore_index=True)
 
 @app.get("/options")
 def get_options():
-    """Return unique values for each field from the imputed CSV."""
-    if not os.path.exists(CSV_PATH):
-        raise HTTPException(status_code=404, detail="CSV data file not found")
+    """Return unique values for each field from all imputed CSVs."""
     try:
-        df = pd.read_csv(CSV_PATH)
+        df = _load_imputed_csvs()
 
         # Helper: coerce a column to numeric (handles "999 999" style strings)
         def to_numeric(series):
@@ -195,7 +200,7 @@ def get_options():
         options = {}
         for col in categorical_cols:
             if col in df.columns:
-                options[col] = sorted(df[col].dropna().unique().tolist())
+                options[col] = sorted(df[col].dropna().str.upper().unique().tolist())
         for col in numeric_cols:
             if col in df.columns:
                 vals = to_numeric(df[col]).dropna()
@@ -228,9 +233,7 @@ def get_options():
 @app.get("/models/{marque}")
 def get_models_by_brand(marque: str):
     """Return the list of known models for a given brand."""
-    if not os.path.exists(CSV_PATH):
-        raise HTTPException(status_code=404, detail="CSV data file not found")
-    df = pd.read_csv(CSV_PATH)
+    df = _load_imputed_csvs()
     filtered = df[df["Marque"].str.lower() == marque.lower()]
     if filtered.empty:
         return {"models": []}
@@ -253,13 +256,15 @@ async def autofill_car(req: AutofillRequest):
     try:
         # Build list of valid options from CSV so the LLM picks real values
         valid_options = {}
-        if os.path.exists(CSV_PATH):
-            df = pd.read_csv(CSV_PATH)
+        try:
+            df = _load_imputed_csvs()
             for col in ["Marque", "Energie", "Boite_vitesse", "Transmission",
                         "Carrosserie", "Gouvernorat", "Couleur_exterieure",
                         "Couleur_interieure", "Sellerie"]:
                 if col in df.columns:
                     valid_options[col] = sorted(df[col].dropna().unique().tolist())
+        except Exception:
+            pass  # proceed without options if CSVs unavailable
 
         system_prompt = f"""Tu es un expert automobile tunisien. L'utilisateur décrit une voiture et tu dois extraire les caractéristiques techniques pour une prédiction de prix.
 

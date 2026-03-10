@@ -29,6 +29,7 @@ class AutomobileScraperDynamic:
         options = webdriver.FirefoxOptions()
         options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
+        options.add_argument('--headless')
         
         self.driver = webdriver.Firefox(options=options)
         logger.info("Firefox started\n")

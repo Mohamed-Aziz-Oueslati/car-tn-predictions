@@ -5,7 +5,7 @@ venv/
 # Python cache files
 __pycache__/
 *.pyc
-
+C:/
 # Environment variables
 .env
 
