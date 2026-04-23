@@ -1,4 +1,4 @@
-const API_URL = "http://192.168.0.3:8000";
+const API_URL = "https://car-tn-predictions-backned.onrender.com";
 
 export { API_URL };
 

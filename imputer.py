@@ -9,7 +9,7 @@ import requests
 from pathlib import Path
 
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
-MODEL = "llama-3.3-70b-versatile"
+model = "llama-3.3-70b-versatile"
 
 API_KEYS = [
     "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",
@@ -62,7 +62,7 @@ def call_llm(prompt, max_retries=3):
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": MODEL,
+                    "model": model,
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.2,
                     "max_tokens": 500
