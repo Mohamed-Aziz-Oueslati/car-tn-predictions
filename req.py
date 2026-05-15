@@ -5,7 +5,7 @@ BASE_URL = "https://stunt-wanting-agility.ngrok-free.dev"
 
 # 1. Upload
 print("Uploading...")
-with open("canvas.jpg", "rb") as f:
+with open("car.jpg", "rb") as f:
     resp = requests.post(f"{BASE_URL}/generate", files={'file': f})
     job_id = resp.json()['job_id']
     print(f"Started job: {job_id}")

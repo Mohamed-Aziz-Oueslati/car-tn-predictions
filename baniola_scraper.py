@@ -6,6 +6,7 @@ import random
 import re
 import os
 import logging
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 logging.basicConfig(
     level=logging.INFO,
@@ -131,13 +132,108 @@ class BaniolaScraper:
                     links.append(full)
         return links
 
-    def get_next_page_url(self, html):
+    def _absolute_url(self, href):
+        if not href:
+            return None
+        return href if href.startswith('http') else self.BASE_URL + href
+
+    def _extract_page_num(self, href, text):
+        if not href:
+            return None
+        try:
+            parsed = urlparse(href)
+            query = parse_qs(parsed.query)
+            for key in ('page', 'p'):
+                if key in query and query[key] and str(query[key][0]).isdigit():
+                    return int(query[key][0])
+            path_match = re.search(r'/page/(\d+)', parsed.path)
+            if path_match:
+                return int(path_match.group(1))
+            href_match = re.search(r'[?&]page=(\d+)', href)
+            if href_match:
+                return int(href_match.group(1))
+        except Exception:
+            pass
+
+        if text and text.isdigit():
+            return int(text)
+        return None
+
+    def _get_current_page_num(self, soup, current_url):
+        if current_url:
+            parsed = urlparse(current_url)
+            query = parse_qs(parsed.query)
+            for key in ('page', 'p'):
+                if key in query and query[key] and str(query[key][0]).isdigit():
+                    return int(query[key][0])
+            path_match = re.search(r'/page/(\d+)', parsed.path)
+            if path_match:
+                return int(path_match.group(1))
+
+        current = soup.find(attrs={'aria-current': 'page'})
+        if current:
+            text = current.get_text(strip=True)
+            if text.isdigit():
+                return int(text)
+
+        active = soup.find(class_=re.compile(r'\bactive\b', re.IGNORECASE))
+        if active:
+            text = active.get_text(strip=True)
+            if text.isdigit():
+                return int(text)
+
+        return 1
+
+    def _increment_page_url(self, current_url, next_page):
+        if not current_url:
+            return None
+        parsed = urlparse(current_url)
+
+        path_match = re.search(r'/page/(\d+)', parsed.path)
+        if path_match:
+            new_path = re.sub(r'/page/\d+', f"/page/{next_page}", parsed.path)
+            return urlunparse(parsed._replace(path=new_path))
+
+        query = parse_qs(parsed.query)
+        query['page'] = [str(next_page)]
+        new_query = urlencode(query, doseq=True)
+        return urlunparse(parsed._replace(query=new_query))
+
+    def get_next_page_url(self, html, current_url=None):
         soup = BeautifulSoup(html, 'html.parser')
+
+        rel_next = soup.find('a', attrs={'rel': re.compile(r'\bnext\b', re.IGNORECASE)}, href=True)
+        if rel_next:
+            return self._absolute_url(rel_next.get('href'))
+
+        next_label = re.compile(r'(suivant|next|page suivante|suiv)', re.IGNORECASE)
         for a in soup.find_all('a', href=True):
-            text = a.get_text(strip=True).lower()
-            if text in ('suivant', 'next', '›', '»', '>>'):
-                href = a['href']
-                return href if href.startswith('http') else self.BASE_URL + href
+            text = a.get_text(' ', strip=True).lower()
+            aria = (a.get('aria-label') or a.get('title') or '').lower()
+            class_text = ' '.join(a.get('class', []))
+            if next_label.search(text) or next_label.search(aria) or re.search(r'\bnext\b', class_text, re.IGNORECASE):
+                return self._absolute_url(a.get('href'))
+            if text in ('›', '»', '>>', '>'):
+                return self._absolute_url(a.get('href'))
+
+        current_page = self._get_current_page_num(soup, current_url)
+        candidates = []
+        for a in soup.find_all('a', href=True):
+            page_num = self._extract_page_num(a.get('href'), a.get_text(strip=True))
+            if page_num:
+                candidates.append((page_num, a.get('href')))
+
+        if candidates:
+            candidates.sort(key=lambda item: item[0])
+            next_num = None
+            for page_num, href in candidates:
+                if page_num > current_page:
+                    next_num = page_num
+                    return self._absolute_url(href)
+
+        if current_page and current_url:
+            return self._increment_page_url(current_url, current_page + 1)
+
         return None
 
     def _parse_characteristics(self, soup):
@@ -322,9 +418,13 @@ class BaniolaScraper:
                 self.scrape_car(car_url)
                 time.sleep(random.uniform(0.3, 0.8))
 
-            next_url = self.get_next_page_url(html)
+            next_url = self.get_next_page_url(html, current_url)
             if not next_url:
                 logger.info("   No more pages available")
+                break
+
+            if next_url == current_url:
+                logger.info("   Next page URL matches current page, stopping.")
                 break
 
             current_url = next_url
