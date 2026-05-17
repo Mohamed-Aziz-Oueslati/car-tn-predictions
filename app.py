@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from pathlib import Path
 import sys
 
@@ -40,7 +39,6 @@ from sqlalchemy.orm import Session
 
 DOWNLOAD_DIR = Path("3d_models")
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
-# ─── Optional ORM Imports (Graceful degradation if files are missing) ─
 try:
     from fastapi import Depends
     from database import get_db, engine as orm_engine
@@ -58,7 +56,6 @@ try:
 except ImportError:
     _ORM_AVAILABLE = False
 
-# ─── Google Gemini AI Setup ───────────────────────────────────────────
 try:
     from google import genai
     from PIL import Image
@@ -67,16 +64,12 @@ try:
 except ImportError:
     gemini_client = None
 
-# ─── Groq Setup (Whisper) ─────────────────────────────────────────────
 try:
     from groq import Groq
     
     GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
     
     if GROQ_API_KEY:
-        # Create a clean httpx client without passing 'proxies' explicitly.
-        # By providing this to the Groq constructor, we prevent the Groq library 
-        # from trying to instantiate its own client with the problematic arguments.
         custom_http_client = httpx.Client()
         groq_client = Groq(api_key=GROQ_API_KEY, http_client=custom_http_client)
     else:
@@ -84,7 +77,6 @@ try:
 except ImportError:
     groq_client = None
 KAGGLE_API_URL = os.getenv("KAGGLE_API_URL", "https://stunt-wanting-agility.ngrok-free.dev")
-# ─── App Initialization ───────────────────────────────────────────────
 app = FastAPI(title="Car Price Prediction API")
 
 app.add_middleware(
@@ -110,13 +102,11 @@ async def force_utf8(request: Request, call_next):
 
 os.makedirs("static/images", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/3d_models", StaticFiles(directory=str(DOWNLOAD_DIR)), name="3d_models")
 
-# ─── Machine Learning Model ───────────────────────────────────────────
 MODEL_PATH = "best_model.pkl"
 model = joblib.load(MODEL_PATH) if os.path.exists(MODEL_PATH) else None
 
-# ─── Database Setup ───────────────────────────────────────────────────
-# Possibility to use port 5432 or 5433 depending on the environment
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:root@localhost:5432/automarket")
 engine = create_engine(
     DATABASE_URL,
@@ -125,7 +115,6 @@ engine = create_engine(
     echo=False,
 )
 
-# ─── Security & Auth Configuration ────────────────────────────────────
 SECRET_KEY = "ton_secret_key_change_moi"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
@@ -159,8 +148,6 @@ def get_user_id_from_token(authorization: str) -> int:
         return int(payload.get("sub"))
     except JWTError:
         raise HTTPException(status_code=401, detail="Token invalide")
-
-# ─── Helper Functions ─────────────────────────────────────────────────
 
 def parse_images(raw):
     if not raw:
@@ -235,7 +222,6 @@ def create_notifications_new_car(
     except Exception as e:
         print(f"Erreur notifications: {e}")
 
-# ─── Pydantic Models ──────────────────────────────────────────────────
 class CarData(BaseModel):
     Marque: str
     Kilometrage: float
@@ -342,7 +328,6 @@ class ChatRequest(BaseModel):
     question: str
     history: Optional[list] = []
 
-# ─── Endpoints - Root & Health ────────────────────────────────────────
 @app.get("/")
 def root():
     return {
@@ -357,8 +342,6 @@ def root():
 def health_check():
     if model: return {"status": "ok", "model_loaded": True}
     return {"status": "degraded", "model_loaded": False}
-
-# ─── CSV Chatbot (Gemini) ─────────────────────────────────────────────
 
 def _build_csv_context(df: pd.DataFrame) -> str:
     row_count = len(df)
@@ -450,14 +433,12 @@ async def chat_audio(file: UploadFile = File(...)):
     if not groq_client:
         raise HTTPException(status_code=503, detail="Groq API is not configured.")
     
-    # 1. Save audio to a temporary file
     ext = file.filename.split(".")[-1].lower()
     with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name
         
     try:
-        # 2. Transcribe using Whisper on Groq (extremely fast)
         with open(tmp_path, "rb") as audio_file:
             transcription = groq_client.audio.transcriptions.create(
                 file=(tmp_path, audio_file.read()),
@@ -469,7 +450,6 @@ async def chat_audio(file: UploadFile = File(...)):
         if not question_text:
             return {"answer": "Sorry, I couldn't hear your question.", "transcription": ""}
 
-        # 3. Ask Gemini for CSV context
         answer = _gemini_csv_answer(question_text)
 
         return {
@@ -479,12 +459,10 @@ async def chat_audio(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        # Clean up temporary audio file
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
 
-# ─── Data Extraction & AI Options ─────────────────────────────────────
 @app.get("/options")
 def get_options():
     try:
@@ -601,7 +579,6 @@ Réponds TOUJOURS en JSON valide: {"marque": "<Marque>", "modele": "<Modèle>", 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ─── Machine Learning Endpoints ───────────────────────────────────────
 @app.post("/predict")
 def predict_price(data: CarData):
     if not model: raise HTTPException(status_code=503, detail="Model not available")
@@ -629,7 +606,6 @@ def predict_batch(request: dict):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# ─── Uploads ──────────────────────────────────────────────────────────
 @app.post("/upload-image")
 async def upload_image(file: UploadFile = File(...)):
     try:
@@ -643,7 +619,6 @@ async def upload_image(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ─── Cars (CRUD) ──────────────────────────────────────────────────────
 @app.post("/cars")
 def create_car(car: CarAnnonce, authorization: str = Header(None)):
     user_id = get_user_id_from_token(authorization)
@@ -777,7 +752,6 @@ def record_view(car_id: int, request: Request):
         return {"success": True}
     except Exception as e: raise HTTPException(status_code=500, detail=str(e))
 
-# ─── Auth ─────────────────────────────────────────────────────────────
 @app.post("/auth/register")
 async def register(request: Request):
     try:
@@ -920,7 +894,6 @@ def change_password(data: ChangePassword, authorization: str = Header(None)):
     except HTTPException: raise
     except Exception as e: raise HTTPException(status_code=500, detail=str(e))
 
-# ─── Chat & Messages ──────────────────────────────────────────────────
 @app.post("/messages")
 def send_message(msg: MessageCreate, authorization: str = Header(None)):
     sender_id = get_user_id_from_token(authorization)
@@ -988,7 +961,6 @@ def get_unread_count(authorization: str = Header(None)):
             return {"unread": conn.execute(text("SELECT COUNT(*) AS count FROM messages WHERE receiver_id = :uid AND is_read = FALSE"), {"uid": user_id}).fetchone().count}
     except Exception as e: raise HTTPException(status_code=500, detail=str(e))
 
-# ─── Dashboard Stats ──────────────────────────────────────────────────
 @app.get("/dashboard/stats")
 def get_dashboard_stats(authorization: str = Header(None)):
     user_id = get_user_id_from_token(authorization)
@@ -1024,7 +996,6 @@ def get_dashboard_stats(authorization: str = Header(None)):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-# ─── Favorites ────────────────────────────────────────────────────────
 @app.get("/favorites")
 def get_favorites(authorization: str = Header(None)):
     user_id = get_user_id_from_token(authorization)
@@ -1073,7 +1044,6 @@ def get_favorite_ids(authorization: str = Header(None)):
             return {"ids": [r.car_id for r in conn.execute(text("SELECT car_id FROM favorites WHERE user_id = :uid"), {"uid": user_id}).fetchall()]}
     except Exception as e: raise HTTPException(status_code=500, detail=str(e))
 
-# ─── Notifications & Preferences ──────────────────────────────────────
 @app.get("/notifications")
 def get_notifications(authorization: str = Header(None)):
     user_id = get_user_id_from_token(authorization)
@@ -1190,7 +1160,6 @@ def save_notif_preferences(data: NotifPreferences, authorization: str = Header(N
             return {"success": True, "message": "Préférences sauvegardées"}
     except Exception as e: raise HTTPException(status_code=500, detail=str(e))
 
-# ─── ORM Routes (Optional fallback if separate files exist) ───────────
 if _ORM_AVAILABLE:
     @app.post("/register", response_model=Token)
     def register_oauth(user: UserCreate, db: Session = Depends(get_db)):
@@ -1220,13 +1189,6 @@ def _kaggle_url(path: str) -> str:
     base = (KAGGLE_API_URL or "").rstrip("/")
     return f"{base}{path}"
 
-
-def _cleanup_file(path: str) -> None:
-    try:
-        if os.path.exists(path):
-            os.remove(path)
-    except Exception:
-        pass
 
 
 APP_3D_QUEUE_MAX = int(os.getenv("APP_3D_QUEUE_MAX", "4"))
@@ -1494,7 +1456,7 @@ async def process_3d_in_progress(job_id: str):
         payload["position"] = _app_queue_position(job_id)
         payload["queue_size"] = app_3d_queue.qsize()
     return payload
-# ─── Execution ────────────────────────────────────────────────────────
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
