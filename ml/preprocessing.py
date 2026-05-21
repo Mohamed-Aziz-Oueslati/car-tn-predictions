@@ -27,18 +27,18 @@ def preprocessing(paths):
     df["Kilometrage"] = df["Kilometrage"].apply(lambda x:x.replace(" ", ""))
     df["Kilometrage"] = df["Kilometrage"].apply(lambda x: float(x))
     df["Price"] = df["Price"].apply(lambda x: float(x.split(" ")[0]))
-    Q1 = df["Price"].quantile(0.25)
-    Q3 = df["Price"].quantile(0.75)     
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    df = df[~((df["Price"] < lower_bound) | (df["Price"] > upper_bound))]
-    Q1 = df["Kilometrage"].quantile(0.25)
-    Q3 = df["Kilometrage"].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    df = df[~((df["Kilometrage"] < lower_bound) | (df["Kilometrage"] > upper_bound))]
+    #Q1 = df["Price"].quantile(0.25)
+    #Q3 = df["Price"].quantile(0.75)     
+    #IQR = Q3 - Q1
+    #lower_bound = Q1 - 1.5 * IQR
+    #upper_bound = Q3 + 1.5 * IQR
+    df = df[df['Price']>=10000]
+    #Q1 = df["Kilometrage"].quantile(0.25)
+    #Q3 = df["Kilometrage"].quantile(0.75)
+    #IQR = Q3 - Q1
+    #lower_bound = Q1 - 1.5 * IQR
+    #upper_bound = Q3 + 1.5 * IQR
+    #df = df[~((df["Kilometrage"] < lower_bound) | (df["Kilometrage"] > upper_bound))]*/
     df["Mise_en_circulation"] = df["Mise_en_circulation"].apply(lambda x: date_fix(x))
     print(df['Mise_en_circulation'].unique())
     df['Mise_en_circulation'] = pd.to_datetime(df['Mise_en_circulation'], format="%m.%Y")

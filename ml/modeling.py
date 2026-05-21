@@ -1,14 +1,41 @@
-import preprocessing as pp
+from ml import preprocessing as pp
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import Ridge, LinearRegression
 from sklearn.tree import DecisionTreeRegressor
+from sklearn.neural_network import MLPRegressor
 from sklearn.model_selection import GridSearchCV
 import mlflow
 import joblib
-from sklearn.metrics import mean_squared_error, r2_score,mean_absolute_error
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 import numpy as np
 from xgboost import XGBRegressor
+
+# Deep Learning Imports
+from scikeras.wrappers import KerasRegressor
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+from tensorflow.keras.optimizers import Adam
+from pytorch_tabnet.tab_model import TabNetRegressor
+
+def create_keras_dnn(hidden_layers=2, neurons=128, learning_rate=0.001, dropout_rate=0.2):
+    """Builder function for TensorFlow/Keras DNN compatible with SciKeras wrapper."""
+    model = Sequential()
+    # Input layer implicitly handled by SciKeras, start with first hidden layer
+    model.add(Dense(neurons, activation='relu'))
+    model.add(BatchNormalization())
+    
+    # Additional Hidden Layers
+    for _ in range(hidden_layers - 1):
+        model.add(Dense(neurons // 2, activation='relu'))
+        model.add(BatchNormalization())
+        if dropout_rate > 0:
+            model.add(Dropout(dropout_rate))
+            
+    # Output Layer for Regression
+    model.add(Dense(1, activation='linear'))
+    model.compile(optimizer=Adam(learning_rate=learning_rate), loss='mse', metrics=['mae'])
+    return model
 
 
 def modeling(paths):
@@ -71,7 +98,43 @@ def modeling(paths):
                 "model__reg_lambda": [1, 1.5, 2]
             }
         },
-     
+        # ------------- DEEP LEARNING MODELS -------------
+        "MLPRegressor": {
+            "model": MLPRegressor(random_state=42, early_stopping=True),
+            "params": {
+                "model__hidden_layer_sizes": [(128, 64, 32), (256, 128, 64)],
+                "model__activation": ["relu", "tanh"],
+                "model__learning_rate_init": [0.001, 0.01],
+                "model__max_iter": [500]
+            }
+        },
+        "Keras_DNN": {
+            "model": KerasRegressor(
+                model=create_keras_dnn,
+                verbose=0,
+                epochs=50,
+                batch_size=32,
+                hidden_layers=2,
+                neurons=128,
+                learning_rate=0.001,
+                dropout_rate=0.2
+            ),
+            "params": {
+                "model__hidden_layers": [2, 3],
+                "model__neurons": [128, 256],
+                "model__dropout_rate": [0.1, 0.2],
+                "model__batch_size": [32, 64]
+            }
+        },
+        "TabNet": {
+            "model": TabNetRegressor(verbose=0, seed=42),
+            "params": {
+                "model__n_d": [8, 16],
+                "model__n_a": [8, 16],
+                "model__n_steps": [3, 5],
+                "model__gamma": [1.3, 1.5]
+            }
+        }
     }
     
     best_overall_model = None
@@ -84,12 +147,16 @@ def modeling(paths):
                 ('model', config["model"])
             ])
             
+            # Use n_jobs=1 for DNN/TabNet to prevent multiprocessing crashes (OOM/CUDA errors)
+            # Use n_jobs=-1 for everything else.
+            grid_n_jobs = 1 if name in ["Keras_DNN", "TabNet"] else -1
+            
             grid_search = GridSearchCV(
                 pipeline,
                 config["params"],
                 cv=5,
                 scoring="r2",
-                n_jobs=-1
+                n_jobs=grid_n_jobs
             )
             
             grid_search.fit(X_train, y_train)
