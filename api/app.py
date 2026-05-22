@@ -40,6 +40,7 @@ async def force_utf8(request: Request, call_next):
     return response
 
 os.makedirs("static/images", exist_ok=True)
+os.makedirs(str(DOWNLOAD_DIR), exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/3d_models", StaticFiles(directory=str(DOWNLOAD_DIR)), name="3d_models")
 
