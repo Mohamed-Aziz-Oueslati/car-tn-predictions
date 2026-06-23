@@ -21,7 +21,7 @@ engine = create_engine(
 SECRET_KEY = "ton_secret_key_change_moi"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
-BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+BASE_URL = os.getenv("BASE_URL", "https://tricky-suspense-refurnish.ngrok-free.dev")
 
 KAGGLE_API_URL = os.getenv("KAGGLE_API_URL", "https://stunt-wanting-agility.ngrok-free.dev")
 
