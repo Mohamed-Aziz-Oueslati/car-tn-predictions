@@ -13,8 +13,10 @@ primary_region = "iad"
   min_machines_running = 0
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "1gb"
+  memory_mb = 256
 
 [processes]
   app = "gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:10000"
