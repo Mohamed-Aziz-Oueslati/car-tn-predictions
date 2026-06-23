@@ -1,4 +1,4 @@
-app = "autopredict-backend"
+app = "car-tn-predictions"
 primary_region = "iad"
 
 [build]
@@ -15,8 +15,4 @@ primary_region = "iad"
 [[vm]]
   cpu_kind = "shared"
   cpus = 1
-  memory = "1gb"
   memory_mb = 256
-
-[processes]
-  app = "gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:10000"
