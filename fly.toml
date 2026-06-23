@@ -1,0 +1,20 @@
+app = "autopredict-backend"
+primary_region = "iad"
+
+[build]
+  [build.args]
+    PYTHON_VERSION = "3.11.9"
+
+[http_service]
+  internal_port = 10000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+[processes]
+  app = "gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:10000"
